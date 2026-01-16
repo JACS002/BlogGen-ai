@@ -105,79 +105,83 @@ const Dashboard = () => {
             {filteredBlogs.map((blog) => (
               <div
                 key={blog.id}
-                className="group bg-slate-900/50 border border-slate-800 hover:border-indigo-500/30 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/10"
+                className="group relative bg-slate-900/50 border border-slate-800 hover:border-indigo-500/30 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/10 flex flex-col"
               >
-                {/* Card Image */}
-                <div className="h-48 overflow-hidden relative">
-                  <img
-                    src={blog.thumbnail}
-                    alt={blog.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  {/* Status Badge */}
-                  <div
-                    className={`absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-medium border backdrop-blur-md
-                    ${
-                      blog.status === "published"
-                        ? "bg-green-500/10 border-green-500/20 text-green-400"
-                        : blog.status === "processing"
-                          ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
-                          : "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
-                    }`}
-                  >
-                    {blog.status.charAt(0).toUpperCase() + blog.status.slice(1)}
-                  </div>
-                </div>
-
-                {/* Card Content */}
-                <div className="p-5">
-                  <div className="flex items-center gap-2 text-xs text-slate-500 mb-3">
-                    <span className="flex items-center gap-1">
-                      <Calendar size={12} /> {blog.date}
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Clock size={12} /> {blog.readTime}
-                    </span>
-                  </div>
-
-                  <h3 className="text-xl font-semibold mb-4 leading-tight group-hover:text-indigo-400 transition-colors">
-                    {blog.title}
-                  </h3>
-
-                  {/* Actions Footer */}
-                  <div className="flex justify-between items-center pt-4 border-t border-slate-800/50">
-                    <a
-                      href={blog.youtubeUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-slate-500 hover:text-red-400 transition"
-                      title="Watch Video"
+                {/* 1. EL ÁREA CLICABLE (Lleva al detalle) */}
+                {/* Usamos flex-1 para que ocupe todo el espacio disponible antes del footer */}
+                <Link
+                  to={`/blog/${blog.id}`}
+                  className="flex-1 block cursor-pointer"
+                >
+                  {/* Imagen */}
+                  <div className="h-48 overflow-hidden relative">
+                    <img
+                      src={blog.thumbnail}
+                      alt={blog.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    {/* Badge de Estado */}
+                    <div
+                      className={`absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-medium border backdrop-blur-md
+              ${
+                blog.status === "published"
+                  ? "bg-green-500/10 border-green-500/20 text-green-400"
+                  : blog.status === "processing"
+                    ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
+                    : "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
+              }`}
                     >
-                      <Youtube size={18} />
-                    </a>
-
-                    <div className="flex gap-2">
-                      <button
-                        className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition"
-                        title="Edit"
-                      >
-                        <Edit3 size={18} />
-                      </button>
-                      <button
-                        className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-red-400 transition"
-                        title="Delete"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                      <button
-                        className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-indigo-400 transition"
-                        title="View"
-                      >
-                        <ExternalLink size={18} />
-                      </button>
+                      {blog.status.charAt(0).toUpperCase() +
+                        blog.status.slice(1)}
                     </div>
                   </div>
+
+                  {/* Contenido Texto */}
+                  <div className="p-5 pb-0">
+                    {" "}
+                    {/* Quitamos padding bottom para que se una al footer */}
+                    <div className="flex items-center gap-2 text-xs text-slate-500 mb-3">
+                      <span className="flex items-center gap-1">
+                        <Calendar size={12} /> {blog.date}
+                      </span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1">
+                        <Clock size={12} /> {blog.readTime}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2 leading-tight group-hover:text-indigo-400 transition-colors">
+                      {blog.title}
+                    </h3>
+                  </div>
+                </Link>
+
+                {/* 2. FOOTER DE ACCIONES RÁPIDAS (Fuera del Link principal) */}
+                {/* Aquí dejamos solo lo esencial que no sea "entrar al blog" */}
+                <div className="p-5 pt-4 mt-auto flex justify-between items-center border-t border-slate-800/50">
+                  {/* Link al video original (útil tenerlo a mano) */}
+                  <a
+                    href={blog.youtubeUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 text-xs text-slate-500 hover:text-red-400 transition z-10" // z-10 asegura que sea clicable
+                    onClick={(e) => e.stopPropagation()} // Evita activar el Link padre si hubiera overlap
+                  >
+                    <Youtube size={16} />
+                    Watch Video
+                  </a>
+
+                  {/* Botón de Borrar (Acción destructiva rápida) */}
+                  <button
+                    className="p-2 hover:bg-red-500/10 rounded-lg text-slate-400 hover:text-red-400 transition z-10"
+                    title="Delete Blog"
+                    onClick={(e) => {
+                      e.stopPropagation(); // IMPORTANTE: Evita que al borrar entres al blog
+                      // Aquí iría la lógica de delete
+                      console.log("Delete clicked for", blog.id);
+                    }}
+                  >
+                    <Trash2 size={18} />
+                  </button>
                 </div>
               </div>
             ))}
