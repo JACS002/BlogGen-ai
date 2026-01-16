@@ -13,8 +13,8 @@ const SignupPage = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState(""); // <--- Nuevo estado
-  const [error, setError] = useState<string | null>(null); // <--- Para manejar errores de validación
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSignup = (e: React.FormEvent) => {
@@ -27,7 +27,7 @@ const SignupPage = () => {
       return;
     }
 
-    // 2. Validar longitud mínima (opcional pero recomendado)
+    // 2. Validar longitud mínima
     if (password.length < 6) {
       setError("Password must be at least 6 characters");
       return;
