@@ -102,12 +102,12 @@ const LoginPage = () => {
           {/* Footer */}
           <p className="mt-6 text-center text-sm text-slate-500">
             Don't have an account?{" "}
-            <a
-              href="#"
+            <Link
+              to="/signup"
               className="text-indigo-400 hover:text-indigo-300 font-medium transition"
             >
               Sign up
-            </a>
+            </Link>
           </p>
         </div>
       </div>
