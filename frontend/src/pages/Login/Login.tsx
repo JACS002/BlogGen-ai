@@ -32,6 +32,7 @@ const LoginPage = () => {
       if (response.ok) {
         // La cookie 'access_token' se ha guardado automáticamente en el navegador.
         console.log("Login exitoso via Cookies");
+        localStorage.setItem("isAuthenticated", "true");
         navigate("/");
       } else {
         setError("Credenciales inválidas. Verifica tu correo y contraseña.");
