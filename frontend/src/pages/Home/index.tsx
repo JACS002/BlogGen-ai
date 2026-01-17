@@ -15,6 +15,7 @@ import { Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import { marked } from "marked";
 import { Navbar } from "../../components/Navbar";
+import { Footer } from "../../components/Footer";
 
 interface FeatureItem {
   title: string;
@@ -418,6 +419,7 @@ const HomePage = () => {
           </div>
         </div>
       </section>
+      <Footer />
     </div>
   );
 };

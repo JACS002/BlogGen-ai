@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Navbar } from "../../components/Navbar";
 import { useNavigate } from "react-router-dom"; // Necesitamos navegar al borrar
+import { Footer } from "../../components/Footer";
 
 // Interfaces
 interface UserProfile {
@@ -448,6 +449,7 @@ const ProfilePage = () => {
           </div>
         </div>
       )}
+      <Footer />
     </div>
   );
 };

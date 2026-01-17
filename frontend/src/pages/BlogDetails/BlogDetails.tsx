@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { marked } from "marked";
 import { Navbar } from "../../components/Navbar";
+import { Footer } from "../../components/Footer";
 
 // --- HELPERS ---
 
@@ -621,6 +622,7 @@ const BlogDetails = () => {
           </div>
         </div>
       )}
+      <Footer />
     </div>
   );
 };

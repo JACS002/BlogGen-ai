@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Navbar } from "../../components/Navbar";
 import { Link } from "react-router-dom";
+import { Footer } from "../../components/Footer";
 
 // Helpers
 const getYouTubeThumbnail = (url: string) => {
@@ -339,6 +340,7 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+      <Footer />
     </div>
   );
 };
