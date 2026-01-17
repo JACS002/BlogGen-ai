@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, type ReactElement } from "react";
 import {
   Sparkles,
   ArrowRight,
@@ -6,8 +6,8 @@ import {
   Mail,
   User,
   AlertCircle,
-} from "lucide-react"; // Agregamos AlertCircle para el error
-import { Link } from "react-router-dom";
+} from "lucide-react";
+import { Link, useNavigate } from "react-router-dom"; // Importamos useNavigate
 
 const SignupPage = () => {
   const [name, setName] = useState("");
@@ -17,17 +17,18 @@ const SignupPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSignup = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null); // Limpiar errores previos
+  const navigate = useNavigate(); // Hook para redireccionar
 
-    // 1. Validar que las contraseñas coincidan
+  const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+
+    // 1. Validaciones Locales
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
 
-    // 2. Validar longitud mínima
     if (password.length < 6) {
       setError("Password must be at least 6 characters");
       return;
@@ -35,12 +36,43 @@ const SignupPage = () => {
 
     setIsLoading(true);
 
-    // Simulación de registro exitoso
-    setTimeout(() => {
+    try {
+      // 2. Conexión con Django
+      const response = await fetch("http://127.0.0.1:8000/api/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        // Nota: No necesitamos credentials: 'include' aquí porque el registro es público
+        body: JSON.stringify({
+          first_name: name, // Mapeamos 'name' a 'first_name' que espera Django
+          email: email,
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log("Usuario creado:", data);
+        // 3. Éxito: Redirigir al Login
+        navigate("/login");
+      } else {
+        // Manejo de errores del backend (ej: "Email ya existe")
+        // Django suele devolver errores como objetos { email: ["error..."] }
+        const serverError = data.email
+          ? data.email[0]
+          : data.password
+            ? data.password[0]
+            : "Registration failed";
+        setError(serverError);
+      }
+    } catch (err) {
+      console.error("Error:", err);
+      setError("Error connecting to server. Is Django running?");
+    } finally {
       setIsLoading(false);
-      console.log("Registered with:", { name, email, password });
-      // Aquí redirigirías al dashboard
-    }, 2000);
+    }
   };
 
   return (
@@ -75,7 +107,7 @@ const SignupPage = () => {
           </p>
 
           <form onSubmit={handleSignup} className="space-y-4">
-            {/* Mensaje de Error (Se muestra solo si existe error) */}
+            {/* Mensaje de Error */}
             {error && (
               <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-fade-in">
                 <AlertCircle size={16} />
@@ -146,7 +178,7 @@ const SignupPage = () => {
               </div>
             </div>
 
-            {/* Input: Confirm Password (NUEVO) */}
+            {/* Input: Confirm Password */}
             <div className="space-y-1">
               <label className="text-sm font-medium text-slate-400">
                 Confirm Password
@@ -160,7 +192,7 @@ const SignupPage = () => {
                   type="password"
                   placeholder="Repeat your password"
                   className={`w-full bg-slate-950 border rounded-xl py-2.5 pl-10 pr-4 outline-none transition text-sm
-                    ${error ? "border-red-500/50 focus:ring-red-500/50" : "border-slate-800 focus:ring-indigo-500/50 focus:border-indigo-500"}
+                    ${error && password !== confirmPassword ? "border-red-500/50 focus:ring-red-500/50" : "border-slate-800 focus:ring-indigo-500/50 focus:border-indigo-500"}
                   `}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -173,7 +205,7 @@ const SignupPage = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex justify-center items-center gap-2 mt-6"
+              className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex justify-center items-center gap-2 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 "Creating account..."
