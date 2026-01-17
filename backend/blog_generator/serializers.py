@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
-
+from .models import BlogPost  
 class SignupSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -8,8 +8,6 @@ class SignupSerializer(serializers.ModelSerializer):
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
-        # TRUCO: Como Django pide 'username' obligatorio, 
-        # usaremos el email como username para que el login sea con correo.
         user = User.objects.create_user(
             username=validated_data['email'], 
             email=validated_data['email'],
@@ -17,3 +15,9 @@ class SignupSerializer(serializers.ModelSerializer):
             first_name=validated_data['first_name']
         )
         return user
+
+class BlogPostSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BlogPost
+        # Definimos qué campos queremos enviarle al Frontend
+        fields = ['id', 'title', 'youtube_url', 'content', 'created_at']

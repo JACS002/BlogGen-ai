@@ -3,7 +3,8 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from .serializers import SignupSerializer
+from .serializers import SignupSerializer, BlogPostSerializer
+from rest_framework import generics
 from .models import BlogPost
 from rest_framework_simplejwt.views import TokenObtainPairView
 
@@ -125,3 +126,19 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                 del response.data['refresh']
             
         return response
+    
+class BlogListAPIView(generics.ListAPIView):
+    serializer_class = BlogPostSerializer
+    permission_classes = [IsAuthenticated] # Solo usuarios logueados
+
+    def get_queryset(self):
+        # Esto filtra para que solo veas TUS propios blogs
+        return BlogPost.objects.filter(user=self.request.user).order_by('-created_at')
+    
+class BlogDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = BlogPostSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Filtramos para asegurar que solo puedes borrar/editar TUS propios blogs
+        return BlogPost.objects.filter(user=self.request.user)
