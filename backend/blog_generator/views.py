@@ -7,11 +7,16 @@ from .serializers import ChangePasswordSerializer, SignupSerializer, BlogPostSer
 from rest_framework import generics
 from .models import BlogPost
 from rest_framework_simplejwt.views import TokenObtainPairView
-
+from groq import Groq
 # Librerías de extracción (Sin OpenAI por ahora)
 import yt_dlp
 import os
 import glob
+import dotenv
+
+dotenv.load_dotenv()  # Cargar variables de entorno desde el archivo .env
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+client = Groq(api_key=GROQ_API_KEY)
 
 # --- VISTA DE REGISTRO (Pública) ---
 @api_view(['POST'])
@@ -34,18 +39,16 @@ def logout_view(request):
 
 # --- VISTA DE GENERACIÓN ---
 @api_view(['POST'])
-@permission_classes([IsAuthenticated]) # <--- REQUISITO: Token JWT válido en el Header
+@permission_classes([IsAuthenticated])
 def generate_blog_topic(request):
-    # DRF ya procesó el JSON por nosotros en request.data
     yt_url = request.data.get('youtube_url')
     
     if not yt_url:
         return Response({'error': 'Falta URL'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Imprimimos en consola quién está haciendo la petición para verificar el Login
-    print(f"🔄 Usuario {request.user.email} solicitó generar blog para: {yt_url}")
+    print(f"🔄 Usuario {request.user.email} procesando: {yt_url}")
 
-    # --- FASE 1: EXTRACCIÓN (yt-dlp) ---
+    # --- FASE 1: EXTRACCIÓN (Igual que antes) ---
     ydl_opts = {
         'quiet': True, 'no_warnings': True, 'skip_download': True,
         'writesubtitles': True, 'writeautomaticsub': True,
@@ -69,7 +72,6 @@ def generate_blog_topic(request):
                 clean_lines = []
                 seen_lines = set()
                 for line in lines:
-                    # Limpieza de basura VTT
                     if '-->' in line or line.strip() == '' or 'WEBVTT' in line or '<' in line: continue
                     text_line = line.strip()
                     if text_line not in seen_lines:
@@ -81,18 +83,57 @@ def generate_blog_topic(request):
             transcript_text = info.get('description', '')
 
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'error': f"Error extrayendo video: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # --- FASE 2: IA (PENDIENTE) ---
-    # Aquí irá OpenAI cuando tú me digas.
-    # Por ahora, pasamos directo a guardar la transcripción cruda.
+    # --- FASE 2: INTELIGENCIA ARTIFICIAL (GROQ) 🚀 ---
+    try:
+        print("⚡ Enviando a Groq (LPU Inference)...")
+        
+        # MODELO: Usaremos 'llama-3.3-70b-versatile'
+        # Es el modelo más potente actual en Groq con 128k de contexto (soporta videos largos)
+        MODEL_NAME = "llama-3.3-70b-versatile"
+
+        prompt_system = """
+        You are an expert technical blog writer. 
+        Your goal is to convert a raw YouTube video transcript into a polished, engaging, and SEO-optimized blog post in Markdown.
+        
+        Rules:
+        1. Title: Create a catchy H1 title at the very top.
+        2. Structure: Use H2 for main sections and H3 for subsections.
+        3. Content: Synthesize the transcript. Remove filler words. Make it readable.
+        4. Tone: Professional, informative, yet accessible.
+        5. Formatting: STRICTLY use Markdown (bold, lists, code blocks).
+        6. Language: If the transcript is in Spanish, write in Spanish. If English, write in English.
+        """
+
+        # Protección básica: Groq Llama 3.3 soporta mucho texto, pero por seguridad cortamos si es excesivo
+        # 100,000 caracteres es aprox 1.5 horas de video hablado
+        MAX_CHARS = 100000 
+        truncated_transcript = transcript_text[:MAX_CHARS]
+        
+        completion = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": prompt_system},
+                {"role": "user", "content": f"Transcript:\n{truncated_transcript}"}
+            ],
+            temperature=0.7, # Creatividad balanceada
+            max_tokens=4000, # Longitud máxima del blog generado
+        )
+        
+        ai_generated_content = completion.choices[0].message.content
+
+    except Exception as e:
+        print(f"Error Groq: {e}")
+        # Si falla Groq, devolvemos la transcripción cruda con una nota
+        ai_generated_content = f"> **Error generating AI content:** {str(e)}\n\nHere is the raw transcript:\n\n{transcript_text}"
 
     # --- FASE 3: GUARDAR ---
     new_post = BlogPost.objects.create(
         user=request.user,
         youtube_url=yt_url,
-        title=video_title,
-        content=transcript_text # Guardamos el texto extraído tal cual
+        title=video_title, 
+        content=ai_generated_content 
     )
 
     return Response({
