@@ -36,9 +36,15 @@ coverage/
 tmp/
 temp/
 
-# Python
+# --- Django ---
+*.log
+*.pot
+*.pyc
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
+local_settings.py
+db.sqlite3
+media/
+
+# Virtual environment
+venv/
+env/
