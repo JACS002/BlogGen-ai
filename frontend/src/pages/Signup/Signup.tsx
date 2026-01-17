@@ -1,4 +1,4 @@
-import React, { useState, type ReactElement } from "react";
+import React, { useState } from "react";
 import {
   Sparkles,
   ArrowRight,
@@ -6,46 +6,48 @@ import {
   Mail,
   User,
   AlertCircle,
+  CheckCircle, // <--- 1. IMPORTAMOS EL ICONO DE CHECK
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom"; // Importamos useNavigate
+import { Link, useNavigate } from "react-router-dom";
 
 const SignupPage = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState(""); // <--- 2. NUEVO ESTADO DE ÉXITO
   const [isLoading, setIsLoading] = useState(false);
 
-  const navigate = useNavigate(); // Hook para redireccionar
+  const navigate = useNavigate();
 
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(""); // Limpiamos mensajes anteriores
 
-    // 1. Validaciones Locales
+    // Validaciones Locales
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError("Las contraseñas no coinciden");
       return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+      setError("La contraseña debe tener al menos 6 caracteres");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      // 2. Conexión con Django
       const response = await fetch("http://127.0.0.1:8000/api/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        // Nota: No necesitamos credentials: 'include' aquí porque el registro es público
         body: JSON.stringify({
-          first_name: name, // Mapeamos 'name' a 'first_name' que espera Django
+          first_name: name,
           email: email,
           password: password,
         }),
@@ -54,23 +56,28 @@ const SignupPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        console.log("Usuario creado:", data);
-        // 3. Éxito: Redirigir al Login
-        navigate("/login");
+        // --- 3. LÓGICA DE ÉXITO ---
+        // A. Mostramos el mensaje verde
+        setSuccessMessage("¡Usuario creado correctamente! Redirigiendo...");
+
+        // B. Esperamos 2 segundos antes de cambiar de página para que el usuario lea
+        setTimeout(() => {
+          navigate("/login");
+        }, 2000);
+
+        // Nota: NO ponemos setIsLoading(false) aquí para que el botón siga bloqueado mientras redirigimos
       } else {
-        // Manejo de errores del backend (ej: "Email ya existe")
-        // Django suele devolver errores como objetos { email: ["error..."] }
         const serverError = data.email
           ? data.email[0]
           : data.password
             ? data.password[0]
-            : "Registration failed";
+            : "Falló el registro";
         setError(serverError);
+        setIsLoading(false); // Aquí sí desbloqueamos el botón para que intente de nuevo
       }
     } catch (err) {
       console.error("Error:", err);
-      setError("Error connecting to server. Is Django running?");
-    } finally {
+      setError("Error conectando con el servidor.");
       setIsLoading(false);
     }
   };
@@ -100,14 +107,16 @@ const SignupPage = () => {
         {/* Card Principal */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8 backdrop-blur-xl shadow-2xl">
           <h2 className="text-2xl font-bold mb-2 text-center">
-            Create an account
+            Crea tu cuenta
           </h2>
           <p className="text-slate-400 text-center mb-6 text-sm">
-            Start generating viral blogs today
+            Comienza a generar blogs virales hoy
           </p>
 
           <form onSubmit={handleSignup} className="space-y-4">
-            {/* Mensaje de Error */}
+            {/* --- 4. MENSAJES DE ESTADO (Error vs Éxito) --- */}
+
+            {/* Mensaje de Error (Rojo) */}
             {error && (
               <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-fade-in">
                 <AlertCircle size={16} />
@@ -115,10 +124,18 @@ const SignupPage = () => {
               </div>
             )}
 
-            {/* Input: Full Name */}
+            {/* Mensaje de Éxito (Verde) */}
+            {successMessage && (
+              <div className="bg-emerald-500/10 border border-emerald-500/50 text-emerald-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-fade-in font-medium">
+                <CheckCircle size={16} />
+                {successMessage}
+              </div>
+            )}
+
+            {/* Inputs del Formulario */}
             <div className="space-y-1">
               <label className="text-sm font-medium text-slate-400">
-                Full Name
+                Nombre Completo
               </label>
               <div className="relative">
                 <User
@@ -136,7 +153,6 @@ const SignupPage = () => {
               </div>
             </div>
 
-            {/* Input: Email */}
             <div className="space-y-1">
               <label className="text-sm font-medium text-slate-400">
                 Email
@@ -157,10 +173,9 @@ const SignupPage = () => {
               </div>
             </div>
 
-            {/* Input: Password */}
             <div className="space-y-1">
               <label className="text-sm font-medium text-slate-400">
-                Password
+                Contraseña
               </label>
               <div className="relative">
                 <Lock
@@ -169,7 +184,7 @@ const SignupPage = () => {
                 />
                 <input
                   type="password"
-                  placeholder="Create a password"
+                  placeholder="••••••••"
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition text-sm"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -178,10 +193,9 @@ const SignupPage = () => {
               </div>
             </div>
 
-            {/* Input: Confirm Password */}
             <div className="space-y-1">
               <label className="text-sm font-medium text-slate-400">
-                Confirm Password
+                Confirmar Contraseña
               </label>
               <div className="relative">
                 <Lock
@@ -190,7 +204,7 @@ const SignupPage = () => {
                 />
                 <input
                   type="password"
-                  placeholder="Repeat your password"
+                  placeholder="••••••••"
                   className={`w-full bg-slate-950 border rounded-xl py-2.5 pl-10 pr-4 outline-none transition text-sm
                     ${error && password !== confirmPassword ? "border-red-500/50 focus:ring-red-500/50" : "border-slate-800 focus:ring-indigo-500/50 focus:border-indigo-500"}
                   `}
@@ -208,10 +222,15 @@ const SignupPage = () => {
               className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex justify-center items-center gap-2 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
-                "Creating account..."
+                // Cambiamos el texto dependiendo de si ya fue exitoso o solo está cargando
+                successMessage ? (
+                  "¡Listo!"
+                ) : (
+                  "Creando cuenta..."
+                )
               ) : (
                 <>
-                  Get Started <ArrowRight size={16} />
+                  Registrarse <ArrowRight size={16} />
                 </>
               )}
             </button>
@@ -219,12 +238,12 @@ const SignupPage = () => {
 
           {/* Footer */}
           <p className="mt-6 text-center text-sm text-slate-500">
-            Already have an account?{" "}
+            ¿Ya tienes cuenta?{" "}
             <Link
               to="/login"
               className="text-indigo-400 hover:text-indigo-300 font-medium transition"
             >
-              Sign in
+              Inicia sesión
             </Link>
           </p>
         </div>
