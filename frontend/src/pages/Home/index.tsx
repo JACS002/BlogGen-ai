@@ -9,37 +9,62 @@ import {
 
 // Importing the Navbar component
 import { Navbar } from "../../components/Navbar";
-// Note: Make sure this path matches where you actually saved the Navbar.
-// If you followed the folder structure guide, it is inside /layout/
 
 const HomePage = () => {
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  // 1. NUEVO ESTADO: Para guardar el contenido que devuelve Django
+  const [blogContent, setBlogContent] = useState("");
+  const [error, setError] = useState("");
 
-  const handleGenerate = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleGenerate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!url) return;
 
     setIsLoading(true);
-    // Backend simulation
-    setTimeout(() => setIsLoading(false), 2000);
-    console.log("Sending URL to backend:", url);
+    setBlogContent(""); // Limpiar resultado anterior
+    setError("");
+
+    try {
+      // 2. CONEXIÓN REAL: Llamamos a tu Backend
+      const response = await fetch("http://127.0.0.1:8000/api/generate-blog", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          youtube_url: url,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Si todo salió bien, guardamos el contenido
+        setBlogContent(data.content);
+        console.log("Datos recibidos:", data);
+      } else {
+        setError(data.error || "Ocurrió un error en el servidor");
+      }
+    } catch (err) {
+      console.error("Error de conexión:", err);
+      setError("No se pudo conectar con el servidor. ¿Está encendido Django?");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-white font-sans selection:bg-indigo-500 selection:text-white">
-      {/* Navbar Component */}
       <Navbar />
 
-      {/* Hero Section Central */}
       <main className="max-w-4xl mx-auto px-6 pt-20 pb-32 text-center">
-        {/* "New" Badge */}
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs text-indigo-400 mb-8 font-medium animate-fade-in-up">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
           </span>
-          Powered by GPT-4o
+          Powered by Django & React
         </div>
 
         <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-500 tracking-tight">
@@ -54,10 +79,10 @@ const HomePage = () => {
           article, perfectly structured and ready to publish in seconds.
         </p>
 
-        {/* Main Input Area */}
+        {/* Formulario */}
         <form
           onSubmit={handleGenerate}
-          className="relative max-w-2xl mx-auto group"
+          className="relative max-w-2xl mx-auto group mb-12"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-cyan-500 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
           <div className="relative flex items-center bg-slate-900 border border-slate-800 rounded-2xl p-2 shadow-2xl">
@@ -93,6 +118,25 @@ const HomePage = () => {
           </div>
         </form>
 
+        {/* 3. VISUALIZACIÓN DEL RESULTADO */}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/50 text-red-200 p-4 rounded-xl max-w-2xl mx-auto mb-12">
+            {error}
+          </div>
+        )}
+
+        {blogContent && (
+          <div className="text-left bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-3xl mx-auto shadow-2xl animate-fade-in-up">
+            <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+              <Sparkles className="text-yellow-400" size={24} />
+              Blog Generado:
+            </h2>
+            <div className="prose prose-invert max-w-none text-slate-300 whitespace-pre-line">
+              {blogContent}
+            </div>
+          </div>
+        )}
+
         {/* Social Proof */}
         <div className="mt-12 flex flex-wrap justify-center gap-4 text-sm text-slate-500">
           <span className="flex items-center gap-1">
@@ -109,7 +153,7 @@ const HomePage = () => {
         </div>
       </main>
 
-      {/* 3. Features Grid */}
+      {/* Features Grid */}
       <section className="border-t border-slate-900 bg-slate-950/50 backdrop-blur-sm py-20">
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid md:grid-cols-3 gap-8">
