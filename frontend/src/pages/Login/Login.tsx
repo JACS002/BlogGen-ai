@@ -1,17 +1,53 @@
 import React, { useState } from "react";
-import { Sparkles, ArrowRight, Lock, Mail } from "lucide-react";
-import { Link } from "react-router-dom"; // Importante para navegar
+import { Sparkles, ArrowRight, Lock, Mail, AlertCircle } from "lucide-react"; // Agregué AlertCircle para errores
+import { Link, useNavigate } from "react-router-dom";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const navigate = useNavigate(); // Hook para navegar
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Aquí conectaremos con Django más adelante
-    setTimeout(() => setIsLoading(false), 2000);
+    setError(""); // Limpiar errores previos
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: email,
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Éxito: Guardamos el token
+        localStorage.setItem("accessToken", data.access);
+        localStorage.setItem("refreshToken", data.refresh);
+
+        console.log("Login exitoso. Token guardado.");
+
+        // Redirigir al Home o al generador
+        navigate("/");
+      } else {
+        // Error: Credenciales incorrectas
+        setError("Credenciales inválidas. Verifica tu correo y contraseña.");
+      }
+    } catch (err) {
+      setError("Error de conexión. ¿El servidor está encendido?");
+      console.error("Error:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -39,6 +75,14 @@ const LoginPage = () => {
         {/* Card */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8 backdrop-blur-xl shadow-2xl">
           <h2 className="text-2xl font-bold mb-6 text-center">Welcome Back</h2>
+
+          {/* MENSAJE DE ERROR VISUAL */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/50 rounded-lg flex items-center gap-2 text-red-400 text-sm">
+              <AlertCircle size={16} />
+              <span>{error}</span>
+            </div>
+          )}
 
           <form onSubmit={handleLogin} className="space-y-4">
             {/* Email Input */}
@@ -87,7 +131,7 @@ const LoginPage = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex justify-center items-center gap-2 mt-4"
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex justify-center items-center gap-2 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 "Signing in..."
