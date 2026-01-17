@@ -12,12 +12,17 @@ import {
   Loader2,
   AlertTriangle,
   X,
-  Check, // Importamos el Check para el éxito
-  AlertCircle, // Para el error
+  Check,
+  AlertCircle,
+  Download,
+  FileText,
 } from "lucide-react";
+import { marked } from "marked";
 import { Navbar } from "../../components/Navbar";
 
 // --- HELPERS ---
+
+// 1. Calcular tiempo de lectura
 const calculateReadTime = (content: string) => {
   if (!content) return "1 min read";
   const wordsPerMinute = 200;
@@ -26,6 +31,7 @@ const calculateReadTime = (content: string) => {
   return `${minutes} min read`;
 };
 
+// 2. Formatear fecha
 const formatDate = (dateString: string) => {
   if (!dateString) return "Recently";
   return new Date(dateString).toLocaleDateString("en-US", {
@@ -33,6 +39,23 @@ const formatDate = (dateString: string) => {
     day: "numeric",
     year: "numeric",
   });
+};
+
+// 3. Limpiar Markdown para la Meta Description (SEO)
+const stripMarkdown = (markdown: string) => {
+  if (!markdown) return "";
+  return (
+    markdown
+      .replace(/#{1,6}\s?/g, "") // Headers
+      .replace(/(\*\*|__)(.*?)\1/g, "$2") // Bold
+      .replace(/(\*|_)(.*?)\1/g, "$2") // Italic
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1") // Links
+      .replace(/`{3}[\s\S]*?`{3}/g, "") // Code blocks
+      .replace(/`(.+?)`/g, "$1") // Inline code
+      .replace(/\n/g, " ") // New lines to spaces
+      .slice(0, 160) // Cortar a 160 caracteres (Estándar SEO)
+      .trim() + "..."
+  );
 };
 
 interface SaveStatus {
@@ -63,7 +86,7 @@ const BlogDetails = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
 
-  // Estado para notificaciones visuales (success/error)
+  // Estado para notificaciones visuales
   const [saveStatus, setSaveStatus] = useState<SaveStatus | null>(null);
 
   // 1. Cargar el Blog
@@ -102,14 +125,13 @@ const BlogDetails = () => {
     fetchBlog();
   }, [id]);
 
-  // Detectar cambios
   const hasUnsavedChanges =
     title !== originalTitle || content !== originalContent;
 
-  // 2. Manejar Guardado (UPDATE) MEJORADO
+  // 2. Guardar (UPDATE)
   const handleSave = async () => {
     setIsSaving(true);
-    setSaveStatus(null); // Limpiamos mensajes previos
+    setSaveStatus(null);
 
     try {
       const response = await fetch(
@@ -127,17 +149,11 @@ const BlogDetails = () => {
       );
 
       if (response.ok) {
-        // Actualizamos los originales
         setOriginalTitle(title);
         setOriginalContent(content);
-
-        // MOSTRAR ÉXITO
         setSaveStatus({ type: "success", message: "Saved successfully!" });
-
-        // Ocultar mensaje después de 3 segundos
         setTimeout(() => setSaveStatus(null), 3000);
       } else {
-        // MOSTRAR ERROR
         setSaveStatus({ type: "error", message: "Failed to save." });
       }
     } catch (error) {
@@ -148,7 +164,7 @@ const BlogDetails = () => {
     }
   };
 
-  // 3. Manejar Borrado
+  // 3. Borrar
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
@@ -173,7 +189,116 @@ const BlogDetails = () => {
     }
   };
 
-  // Navegación
+  // 4. Descargar Markdown (.md)
+  const handleDownloadMarkdown = () => {
+    const element = document.createElement("a");
+    const file = new Blob([content], { type: "text/markdown" });
+    element.href = URL.createObjectURL(file);
+    element.download = `${title.replace(/\s+/g, "_")}.md`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
+  // 5. Descargar HTML (.html) - SEO OPTIMIZED 🚀
+  const handleDownloadHTML = async () => {
+    const htmlContent = await marked(content);
+
+    // Preparar variables SEO
+    const cleanDescription = stripMarkdown(content);
+    const youtubeThumb = metaData.youtubeUrl
+      ? `https://img.youtube.com/vi/${metaData.youtubeUrl.split("v=")[1]?.split("&")[0]}/maxresdefault.jpg`
+      : "";
+    const publishedDate = new Date().toISOString();
+
+    // Construir HTML con Meta Tags, Open Graph y Schema.org
+    const fullHtml = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="description" content="${cleanDescription}">
+        <meta name="author" content="BlogGen AI User">
+        
+        <meta property="og:type" content="article">
+        <meta property="og:title" content="${title}">
+        <meta property="og:description" content="${cleanDescription}">
+        <meta property="og:image" content="${youtubeThumb}">
+        <meta property="og:url" content="${metaData.youtubeUrl}">
+        
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:title" content="${title}">
+        <meta name="twitter:description" content="${cleanDescription}">
+        <meta name="twitter:image" content="${youtubeThumb}">
+
+        <title>${title}</title>
+
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "BlogPosting",
+          "headline": "${title}",
+          "image": "${youtubeThumb}",
+          "datePublished": "${metaData.createdAt || publishedDate}",
+          "dateModified": "${publishedDate}",
+          "author": {
+            "@type": "Person",
+            "name": "Content Creator"
+          },
+          "description": "${cleanDescription}"
+        }
+        </script>
+
+        <style>
+          :root { --primary: #2563eb; --text: #1f2937; --bg: #ffffff; }
+          @media (prefers-color-scheme: dark) { :root { --primary: #60a5fa; --text: #f3f4f6; --bg: #111827; } }
+          
+          body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
+          h1 { color: var(--primary); font-size: 2.5rem; line-height: 1.2; margin-bottom: 1rem; }
+          h2 { margin-top: 2rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+          a { color: var(--primary); text-decoration: none; }
+          a:hover { text-decoration: underline; }
+          img { max-width: 100%; height: auto; border-radius: 12px; margin: 20px 0; }
+          pre { background: #1e293b; color: #f8fafc; padding: 20px; border-radius: 8px; overflow-x: auto; }
+          code { font-family: monospace; background: rgba(37, 99, 235, 0.1); color: var(--primary); padding: 2px 6px; border-radius: 4px; }
+          blockquote { border-left: 4px solid var(--primary); padding-left: 1rem; font-style: italic; color: #6b7280; }
+          .meta { font-size: 0.9rem; color: #6b7280; margin-bottom: 2rem; display: flex; gap: 10px; align-items: center; }
+          .video-btn { background: #ff0000; color: white; padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 0.8rem; }
+        </style>
+      </head>
+      <body>
+        <article>
+          <header>
+            <h1>${title}</h1>
+            <div class="meta">
+              <time>${formatDate(metaData.createdAt)}</time> • 
+              <span>${calculateReadTime(content)}</span>
+              <a href="${metaData.youtubeUrl}" target="_blank" class="video-btn">▶ Watch Video</a>
+            </div>
+            ${youtubeThumb ? `<img src="${youtubeThumb}" alt="${title}">` : ""}
+          </header>
+          <main>
+            ${htmlContent}
+          </main>
+          <footer style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 0.8rem; color: #9ca3af;">
+             <p>Generated with AI BlogGen</p>
+          </footer>
+        </article>
+      </body>
+      </html>
+    `;
+
+    const element = document.createElement("a");
+    const file = new Blob([fullHtml], { type: "text/html" });
+    element.href = URL.createObjectURL(file);
+    element.download = `${title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.html`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
+  // Navegación segura
   const handleBackClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
     if (hasUnsavedChanges) {
@@ -220,9 +345,8 @@ const BlogDetails = () => {
             Back to Dashboard
           </a>
 
-          <div className="flex items-center gap-3">
-            {/* --- ÁREA DE NOTIFICACIONES --- */}
-            {/* Prioridad 1: Mensajes de Éxito/Error */}
+          <div className="flex items-center gap-3 flex-wrap justify-end">
+            {/* Notificaciones */}
             {saveStatus && (
               <span
                 className={`text-xs font-medium animate-fade-in flex items-center gap-1 mr-2 ${
@@ -240,7 +364,6 @@ const BlogDetails = () => {
               </span>
             )}
 
-            {/* Prioridad 2: Advertencia de Cambios sin guardar (Solo si no hay status activo) */}
             {!saveStatus && hasUnsavedChanges && (
               <span className="text-xs text-yellow-500 font-medium animate-pulse mr-2 flex items-center gap-1">
                 <AlertTriangle size={12} />
@@ -250,6 +373,9 @@ const BlogDetails = () => {
 
             <div className="h-6 w-px bg-slate-800 hidden md:block"></div>
 
+            {/* BOTONES DE ACCIÓN */}
+
+            {/* 1. Guardar */}
             <button
               onClick={handleSave}
               disabled={isSaving || !hasUnsavedChanges}
@@ -273,22 +399,42 @@ const BlogDetails = () => {
               )}
             </button>
 
+            {/* 2. Copiar */}
             <button
               onClick={handleCopy}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-sm font-medium transition border border-slate-700"
+              className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition border border-transparent hover:border-slate-700"
+              title="Copy to Clipboard"
             >
               {isCopied ? (
-                <CheckCircle size={16} className="text-green-400" />
+                <CheckCircle size={18} className="text-green-400" />
               ) : (
-                <Copy size={16} />
+                <Copy size={18} />
               )}
-              {isCopied ? "Copied!" : "Copy"}
             </button>
 
+            {/* 3. Descargar Markdown */}
+            <button
+              onClick={handleDownloadMarkdown}
+              className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition border border-transparent hover:border-slate-700"
+              title="Download Markdown"
+            >
+              <FileText size={18} />
+            </button>
+
+            {/* 4. Descargar HTML (SEO Optimized) */}
+            <button
+              onClick={handleDownloadHTML}
+              className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition border border-transparent hover:border-slate-700"
+              title="Download Optimized HTML"
+            >
+              <Download size={18} />
+            </button>
+
+            {/* 5. Borrar */}
             <button
               onClick={() => setShowDeleteModal(true)}
-              className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition"
-              title="Delete"
+              className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition ml-2"
+              title="Delete Blog"
             >
               <Trash2 size={18} />
             </button>

@@ -5,30 +5,54 @@ import {
   ArrowRight,
   FileText,
   CheckCircle,
-  AlertCircle, // Icono para errores bonitos
+  AlertCircle,
+  Download,
+  Copy,
+  Edit3,
+  Check,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import ReactMarkdown from "react-markdown";
+import { marked } from "marked";
 import { Navbar } from "../../components/Navbar";
 
-// Definimos la interfaz para los items de características (Feature Grid)
 interface FeatureItem {
   title: string;
   desc: string;
   icon: React.ReactNode;
 }
 
+// --- HELPER: Limpiar Markdown para SEO Description ---
+const stripMarkdown = (markdown: string) => {
+  if (!markdown) return "";
+  return (
+    markdown
+      .replace(/#{1,6}\s?/g, "") // Remove headers
+      .replace(/(\*\*|__)(.*?)\1/g, "$2") // Remove bold
+      .replace(/(\*|_)(.*?)\1/g, "$2") // Remove italic
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1") // Remove links
+      .replace(/`{3}[\s\S]*?`{3}/g, "") // Remove code blocks
+      .replace(/`(.+?)`/g, "$1") // Remove inline code
+      .replace(/\n/g, " ") // Replace newlines with spaces
+      .slice(0, 160) // Cut to 160 chars
+      .trim() + "..."
+  );
+};
+
 const HomePage = () => {
-  // Tipado explícito de estados
   const [url, setUrl] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [blogContent, setBlogContent] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [isAuth, setIsAuth] = useState<boolean>(false);
 
-  // Hook de navegación
-  const navigate = useNavigate();
+  // Estados del Resultado
+  const [blogContent, setBlogContent] = useState<string>("");
+  const [blogTitle, setBlogTitle] = useState<string>("");
+  const [blogId, setBlogId] = useState<number | null>(null);
 
-  // 1. Verificamos si está logueado al cargar la página
+  // Estado UI
+  const [isCopied, setIsCopied] = useState(false);
+
   useEffect(() => {
     const loggedIn = localStorage.getItem("isAuthenticated") === "true";
     setIsAuth(loggedIn);
@@ -36,18 +60,15 @@ const HomePage = () => {
 
   const handleGenerate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    // Limpieza de estados previos
     setError("");
     setBlogContent("");
+    setBlogTitle("");
+    setBlogId(null);
 
-    // --- VALIDACIÓN 1: ¿Usuario Logueado? ---
     if (!isAuth) {
       setError("Please log in to generate viral blogs.");
-      return; // Detenemos la función aquí
+      return;
     }
-
-    // --- VALIDACIÓN 2: ¿URL vacía? ---
     if (!url.trim()) {
       setError("Please paste a YouTube URL to start.");
       return;
@@ -58,38 +79,153 @@ const HomePage = () => {
     try {
       const response = await fetch("http://127.0.0.1:8000/api/generate-blog", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include", // Importante para enviar la cookie
-        body: JSON.stringify({
-          youtube_url: url,
-        }),
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ youtube_url: url }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
         setBlogContent(data.content);
-        // Opcional: Si quisieras redirigir al detalle:
-        // navigate(`/blog/${data.id}`);
+        setBlogTitle(data.title);
+        setBlogId(data.id);
       } else {
-        // Manejo de errores del servidor
         if (response.status === 401) {
           setError("Your session has expired. Please log in again.");
-          // Limpiamos la sesión local si el token expiró
           localStorage.removeItem("isAuthenticated");
           setIsAuth(false);
         } else {
+          // Aquí capturamos el mensaje que enviamos desde Django (ej: "El video es demasiado largo...")
           setError(data.error || "An error occurred on the server.");
         }
+        // Aseguramos que el contenido esté vacío para que NO salgan botones
+        setBlogContent("");
+        setBlogTitle("");
+        setBlogId(null);
       }
     } catch (err) {
       console.error("Connection error:", err);
       setError("Could not connect to the server. Is Django running?");
+      setBlogContent("");
+      setBlogTitle("");
+      setBlogId(null);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // --- FUNCIONES DE DESCARGA ---
+  const handleDownloadMarkdown = () => {
+    const element = document.createElement("a");
+    const file = new Blob([blogContent], { type: "text/markdown" });
+    element.href = URL.createObjectURL(file);
+    element.download = `${blogTitle.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.md`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
+  // 🚀 VERSIÓN SEO OPTIMIZED PARA HOME 🚀
+  const handleDownloadHTML = async () => {
+    const htmlContent = await marked(blogContent);
+
+    // 1. Extraer miniatura del video actual
+    const videoId = url.split("v=")[1]?.split("&")[0];
+    const youtubeThumb = videoId
+      ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+      : "";
+
+    // 2. Generar descripción limpia
+    const cleanDescription = stripMarkdown(blogContent);
+    const publishedDate = new Date().toISOString();
+
+    // 3. Construir HTML Profesional
+    const fullHtml = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="description" content="${cleanDescription}">
+        <meta name="author" content="BlogGen AI User">
+        
+        <meta property="og:type" content="article">
+        <meta property="og:title" content="${blogTitle}">
+        <meta property="og:description" content="${cleanDescription}">
+        <meta property="og:image" content="${youtubeThumb}">
+        <meta property="og:url" content="${url}">
+        
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:title" content="${blogTitle}">
+        <meta name="twitter:description" content="${cleanDescription}">
+        <meta name="twitter:image" content="${youtubeThumb}">
+
+        <title>${blogTitle}</title>
+
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "BlogPosting",
+          "headline": "${blogTitle}",
+          "image": "${youtubeThumb}",
+          "datePublished": "${publishedDate}",
+          "author": {
+            "@type": "Person",
+            "name": "Content Creator"
+          },
+          "description": "${cleanDescription}"
+        }
+        </script>
+
+        <style>
+          :root { --primary: #2563eb; --text: #1f2937; --bg: #ffffff; }
+          @media (prefers-color-scheme: dark) { :root { --primary: #60a5fa; --text: #f3f4f6; --bg: #111827; } }
+          
+          body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
+          h1 { color: var(--primary); font-size: 2.5rem; line-height: 1.2; margin-bottom: 1rem; }
+          h2 { margin-top: 2rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+          a { color: var(--primary); text-decoration: none; }
+          a:hover { text-decoration: underline; }
+          img { max-width: 100%; height: auto; border-radius: 12px; margin: 20px 0; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+          pre { background: #1e293b; color: #f8fafc; padding: 20px; border-radius: 8px; overflow-x: auto; }
+          code { font-family: monospace; background: rgba(37, 99, 235, 0.1); color: var(--primary); padding: 2px 6px; border-radius: 4px; }
+          blockquote { border-left: 4px solid var(--primary); padding-left: 1rem; font-style: italic; color: #6b7280; }
+          .video-btn { background: #ff0000; color: white; padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 0.8rem; display: inline-block; margin-top: 10px; }
+        </style>
+      </head>
+      <body>
+        <article>
+          <header>
+            <h1>${blogTitle}</h1>
+            <p style="color: #6b7280; font-size: 0.9rem;">Published recently</p>
+            <a href="${url}" target="_blank" class="video-btn">▶ Watch Original Video</a>
+            ${youtubeThumb ? `<br><img src="${youtubeThumb}" alt="${blogTitle}">` : ""}
+          </header>
+          <main>
+            ${htmlContent}
+          </main>
+          <footer style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 0.8rem; color: #9ca3af;">
+             <p>Generated with AI BlogGen</p>
+          </footer>
+        </article>
+      </body>
+      </html>
+    `;
+
+    const element = document.createElement("a");
+    const file = new Blob([fullHtml], { type: "text/html" });
+    element.href = URL.createObjectURL(file);
+    element.download = `${blogTitle.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.html`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(blogContent);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
   };
 
   return (
@@ -97,16 +233,15 @@ const HomePage = () => {
       <Navbar />
 
       <main className="max-w-4xl mx-auto px-6 pt-20 pb-32 text-center">
-        {/* Badge "Powered by..." */}
+        {/* Badge */}
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs text-indigo-400 mb-8 font-medium animate-fade-in-up">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
           </span>
-          Powered by Django & React
+          Powered by Groq & Llama 3
         </div>
 
-        {/* Título Principal */}
         <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-500 tracking-tight">
           Turn videos into <br />
           <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">
@@ -136,47 +271,34 @@ const HomePage = () => {
               value={url}
               onChange={(e) => {
                 setUrl(e.target.value);
-                if (error) setError(""); // Limpiar error mientras escribe
+                if (error) setError("");
               }}
             />
             <button
               type="submit"
               disabled={isLoading}
               className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300
-                ${
-                  isLoading
-                    ? "bg-slate-700 text-slate-400 cursor-not-allowed"
-                    : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/50"
-                }`}
+                ${isLoading ? "bg-slate-700 text-slate-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/50"}`}
             >
               {isLoading ? (
                 "Generating..."
               ) : (
                 <>
-                  Generate
-                  <ArrowRight size={18} />
+                  Generate <ArrowRight size={18} />
                 </>
               )}
             </button>
           </div>
         </form>
 
-        {/* --- MENSAJES DE ERROR / ADVERTENCIA "BONITOS" --- */}
+        {/* Mensajes de Error */}
         {error && (
           <div className="animate-in fade-in slide-in-from-top-2 duration-300 max-w-md mx-auto mb-12">
             <div
-              className={`p-4 rounded-xl flex items-center gap-3 text-sm text-left border shadow-lg
-                ${
-                  error.includes("log in")
-                    ? "bg-indigo-500/10 border-indigo-500/50 text-indigo-300" // Estilo azul para Login
-                    : "bg-red-500/10 border-red-500/50 text-red-200" // Estilo rojo para errores
-                }
-            `}
+              className={`p-4 rounded-xl flex items-center gap-3 text-sm text-left border shadow-lg ${error.includes("log in") ? "bg-indigo-500/10 border-indigo-500/50 text-indigo-300" : "bg-red-500/10 border-red-500/50 text-red-200"}`}
             >
               <AlertCircle size={20} className="shrink-0" />
               <div className="flex-1">{error}</div>
-
-              {/* Botón de Login inline si el error es de autenticación */}
               {error.includes("log in") && (
                 <Link
                   to="/login"
@@ -189,20 +311,63 @@ const HomePage = () => {
           </div>
         )}
 
-        {/* --- RESULTADO DEL BLOG --- */}
+        {/* --- RESULTADO DEL BLOG RENDERIZADO --- */}
         {blogContent && (
-          <div className="text-left bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-3xl mx-auto shadow-2xl animate-fade-in-up mb-12">
-            <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-              <Sparkles className="text-yellow-400" size={24} />
-              Generated Blog:
-            </h2>
-            <div className="prose prose-invert max-w-none text-slate-300 whitespace-pre-line">
-              {blogContent}
+          <div className="text-left bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl mx-auto shadow-2xl animate-fade-in-up mb-12 overflow-hidden">
+            {/* Header del Resultado: Acciones */}
+            <div className="bg-slate-950/50 border-b border-slate-800 p-4 flex flex-wrap gap-3 items-center justify-between">
+              <div className="flex items-center gap-2 text-yellow-400 font-semibold">
+                <Sparkles size={18} /> Generated successfully
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopy}
+                  className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition"
+                  title="Copy Text"
+                >
+                  {isCopied ? (
+                    <Check size={18} className="text-green-400" />
+                  ) : (
+                    <Copy size={18} />
+                  )}
+                </button>
+                <div className="h-4 w-px bg-slate-800"></div>
+                <button
+                  onClick={handleDownloadMarkdown}
+                  className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition"
+                  title="Download Markdown"
+                >
+                  <FileText size={18} />
+                </button>
+                <button
+                  onClick={handleDownloadHTML}
+                  className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition"
+                  title="Download SEO HTML"
+                >
+                  <Download size={18} />
+                </button>
+
+                {/* Botón Principal: EDITAR */}
+                <Link
+                  to={`/blog/${blogId}`}
+                  className="ml-2 flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition"
+                >
+                  <Edit3 size={16} /> Edit & Save
+                </Link>
+              </div>
+            </div>
+
+            {/* Contenido Renderizado (Con Tailwind Typography) */}
+            <div className="p-8 max-h-[600px] overflow-y-auto custom-scrollbar">
+              <div className="prose prose-invert prose-indigo max-w-none prose-headings:font-bold prose-h1:text-3xl prose-p:text-slate-300 prose-a:text-indigo-400">
+                <ReactMarkdown>{blogContent}</ReactMarkdown>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Social Proof Icons */}
+        {/* Social Proof */}
         <div className="mt-12 flex flex-wrap justify-center gap-4 text-sm text-slate-500">
           <span className="flex items-center gap-1">
             <CheckCircle size={14} className="text-indigo-500" /> Auto

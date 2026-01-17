@@ -85,12 +85,19 @@ def generate_blog_topic(request):
     except Exception as e:
         return Response({'error': f"Error extrayendo video: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # --- FASE 2: INTELIGENCIA ARTIFICIAL (GROQ) 🚀 ---
+
+    MAX_CHARS = 100000
+    if len(transcript_text) > MAX_CHARS:
+        return Response(
+            {'error': 'The video is too long to process (Limit exceeded). Please try a video shorter than 30 minutes.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # --- FASE 2: INTELIGENCIA ARTIFICIAL (GROQ) ---
     try:
-        print("⚡ Enviando a Groq (LPU Inference)...")
+        print(" Enviando a Groq (LPU Inference)...")
         
         # MODELO: Usaremos 'llama-3.3-70b-versatile'
-        # Es el modelo más potente actual en Groq con 128k de contexto (soporta videos largos)
         MODEL_NAME = "llama-3.3-70b-versatile"
 
         prompt_system = """
@@ -105,28 +112,25 @@ def generate_blog_topic(request):
         5. Formatting: STRICTLY use Markdown (bold, lists, code blocks).
         6. Language: If the transcript is in Spanish, write in Spanish. If English, write in English.
         """
-
-        # Protección básica: Groq Llama 3.3 soporta mucho texto, pero por seguridad cortamos si es excesivo
-        # 100,000 caracteres es aprox 1.5 horas de video hablado
-        MAX_CHARS = 100000 
-        truncated_transcript = transcript_text[:MAX_CHARS]
         
         completion = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
                 {"role": "system", "content": prompt_system},
-                {"role": "user", "content": f"Transcript:\n{truncated_transcript}"}
+                {"role": "user", "content": f"Transcript:\n{transcript_text}"}
             ],
-            temperature=0.7, # Creatividad balanceada
-            max_tokens=4000, # Longitud máxima del blog generado
+            temperature=0.7,
+            max_tokens=4000,
         )
         
         ai_generated_content = completion.choices[0].message.content
 
     except Exception as e:
         print(f"Error Groq: {e}")
-        # Si falla Groq, devolvemos la transcripción cruda con una nota
-        ai_generated_content = f"> **Error generating AI content:** {str(e)}\n\nHere is the raw transcript:\n\n{transcript_text}"
+        return Response(
+            {'error': 'Error generating content with AI. Please try again later.'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
     # --- FASE 3: GUARDAR ---
     new_post = BlogPost.objects.create(
@@ -149,12 +153,11 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         if response.status_code == 200:
             token = response.data['access']
             
-            # CONFIGURACIÓN EXACTA PARA LOCALHOST / 127.0.0.1
             response.set_cookie(
                 'access_token',     # Nombre exacto
                 token,
                 httponly=True,      # Seguridad
-                samesite='Lax',     # 'Lax' es lo mejor para desarrollo local
+                samesite='Lax',     # 'Lax'
                 secure=False,       # False porque no tiene HTTPS
                 path='/',           # Disponible en toda la web
                 max_age=3600 * 24   
