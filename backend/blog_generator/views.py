@@ -1,108 +1,91 @@
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-import json
+from django.contrib.auth.models import User
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.response import Response
+from .serializers import SignupSerializer
 from .models import BlogPost
+
+# Librerías de extracción (Sin OpenAI por ahora)
 import yt_dlp
 import os
 import glob
 
-@csrf_exempt
+# --- VISTA DE REGISTRO (Pública) ---
+@api_view(['POST'])
+@permission_classes([AllowAny]) # Cualquiera puede registrarse sin token
+def signup(request):
+    serializer = SignupSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({"message": "Usuario creado exitosamente"}, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# --- VISTA DE GENERACIÓN (Protegida 🔒) ---
+@api_view(['POST'])
+@permission_classes([IsAuthenticated]) # <--- REQUISITO: Token JWT válido en el Header
 def generate_blog_topic(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            yt_url = data.get('youtube_url')
-            
-            if not yt_url:
-                return JsonResponse({'error': 'Falta URL'}, status=400)
+    # DRF ya procesó el JSON por nosotros en request.data
+    yt_url = request.data.get('youtube_url')
+    
+    if not yt_url:
+        return Response({'error': 'Falta URL'}, status=status.HTTP_400_BAD_REQUEST)
 
-            print(f"🔄 1. Descargando subtítulos con yt-dlp para: {yt_url}")
+    # Imprimimos en consola quién está haciendo la petición para verificar el Login
+    print(f"🔄 Usuario {request.user.email} solicitó generar blog para: {yt_url}")
 
-            # Configuración para descargar SOLO el archivo de subtítulos
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'skip_download': True,      # No bajar el video (ahorra tiempo y espacio)
-                'writesubtitles': True,     # Bajar subs manuales si existen
-                'writeautomaticsub': True,  # Bajar subs automáticos (IMPORTANTE)
-                'sublangs': ['es', 'en'],   # Preferencia: Español o Inglés
-                'outtmpl': '%(id)s',        # El archivo se llamará como el ID del video
-            }
+    # --- FASE 1: EXTRACCIÓN (yt-dlp) ---
+    ydl_opts = {
+        'quiet': True, 'no_warnings': True, 'skip_download': True,
+        'writesubtitles': True, 'writeautomaticsub': True,
+        'sublangs': ['es', 'en'], 'outtmpl': '%(id)s',
+    }
+    
+    transcript_text = ""
+    video_title = "Sin título"
+    
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(yt_url, download=True)
+            video_id = info.get('id')
+            video_title = info.get('title')
 
-            video_title = "Sin título"
-            transcript_text = ""
-            video_id = ""
+        generated_files = glob.glob(f"{video_id}*.vtt")
+        if generated_files:
+            subtitle_file = generated_files[0]
+            with open(subtitle_file, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+                clean_lines = []
+                seen_lines = set()
+                for line in lines:
+                    # Limpieza de basura VTT
+                    if '-->' in line or line.strip() == '' or 'WEBVTT' in line or '<' in line: continue
+                    text_line = line.strip()
+                    if text_line not in seen_lines:
+                        clean_lines.append(text_line)
+                        seen_lines.add(text_line)
+                transcript_text = " ".join(clean_lines)
+            os.remove(subtitle_file)
+        else:
+            transcript_text = info.get('description', '')
 
-            try:
-                # 1. Ejecutamos la descarga de metadatos y subtítulos
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(yt_url, download=True)
-                    video_id = info.get('id')
-                    video_title = info.get('title')
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-                # 2. Buscamos el archivo .vtt que se acaba de crear
-                # yt-dlp suele nombrarlos como "ID.es.vtt" o "ID.en.vtt"
-                generated_files = glob.glob(f"{video_id}*.vtt")
-                
-                if generated_files:
-                    subtitle_file = generated_files[0] # Tomamos el primero que encuentre
-                    print(f"📄 Leyendo archivo físico: {subtitle_file}")
-                    
-                    # Leemos el archivo y limpiamos el formato WebVTT
-                    with open(subtitle_file, 'r', encoding='utf-8') as f:
-                        lines = f.readlines()
-                        clean_lines = []
-                        seen_lines = set() # Para evitar duplicados (común en subs automáticos)
-                        
-                        for line in lines:
-                            # Filtros de limpieza:
-                            if '-->' in line: continue        # Elimina tiempos (00:00:10 --> 00:00:15)
-                            if line.strip() == '': continue   # Elimina líneas vacías
-                            if line.strip() == 'WEBVTT': continue # Elimina cabecera
-                            if '<' in line and '>' in line: continue # Intenta quitar etiquetas raras
-                            
-                            # Evitar repeticiones exactas consecutivas
-                            text_line = line.strip()
-                            if text_line in seen_lines: continue
-                            
-                            clean_lines.append(text_line)
-                            seen_lines.add(text_line)
-                        
-                        transcript_text = " ".join(clean_lines)
+    # --- FASE 2: IA (PENDIENTE) ---
+    # Aquí irá OpenAI cuando tú me digas.
+    # Por ahora, pasamos directo a guardar la transcripción cruda.
 
-                    # 3. Limpieza: Borramos el archivo del disco para no dejar basura
-                    os.remove(subtitle_file)
-                    print("🧹 Archivo temporal eliminado.")
-                
-                else:
-                    print("⚠️ No se descargó archivo de subtítulos. Usando descripción como respaldo.")
-                    # Si falla, usamos la descripción para no devolver vacío
-                    transcript_text = info.get('description', 'No hay descripción disponible.')
+    # --- FASE 3: GUARDAR ---
+    new_post = BlogPost.objects.create(
+        user=request.user,
+        youtube_url=yt_url,
+        title=video_title,
+        content=transcript_text # Guardamos el texto extraído tal cual
+    )
 
-            except Exception as e:
-                print(f"❌ Error extracción: {e}")
-                return JsonResponse({'error': f'Error al extraer datos: {str(e)}'}, status=500)
-            
-            # --- GUARDAR EN BD (SIN IA) ---
-            # Guardamos la transcripción pura para verla en el Frontend
-            new_post = BlogPost.objects.create(
-                youtube_url=yt_url,
-                title=f"TRANSCRIPCIÓN: {video_title}",
-                content=transcript_text
-            )
-
-            print("✅ ¡Datos guardados y enviados!")
-
-            return JsonResponse({
-                'id': new_post.id,
-                'title': new_post.title,
-                'content': new_post.content,
-                'youtube_url': new_post.youtube_url,
-                'created_at': new_post.created_at
-            })
-
-        except Exception as e:
-            print(f"🔥 ERROR GENERAL: {str(e)}")
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método no permitido'}, status=405)
+    return Response({
+        'id': new_post.id,
+        'title': new_post.title,
+        'content': new_post.content
+    })
