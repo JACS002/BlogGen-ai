@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     #Nuestras apps
     'blog_generator',
     'corsheaders',
+    'rest_framework',
+    'rest_framework_simplejwt'
 ]
 
 MIDDLEWARE = [
@@ -129,3 +131,19 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+
+# CONFIGURACIÓN DE REST FRAMEWORK
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated', # Bloquea todo por defecto
+    ],
+}
+
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1), # El token dura 1 día (para no loguearte a cada rato en desarrollo)
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+}

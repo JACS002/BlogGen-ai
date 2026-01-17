@@ -1,78 +1,91 @@
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-import json
+from django.contrib.auth.models import User
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.response import Response
+from .serializers import SignupSerializer
 from .models import BlogPost
+
+# Librerías de extracción (Sin OpenAI por ahora)
 import yt_dlp
+import os
+import glob
 
-@csrf_exempt
+# --- VISTA DE REGISTRO (Pública) ---
+@api_view(['POST'])
+@permission_classes([AllowAny]) # Cualquiera puede registrarse sin token
+def signup(request):
+    serializer = SignupSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({"message": "Usuario creado exitosamente"}, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# --- VISTA DE GENERACIÓN (Protegida 🔒) ---
+@api_view(['POST'])
+@permission_classes([IsAuthenticated]) # <--- REQUISITO: Token JWT válido en el Header
 def generate_blog_topic(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            yt_url = data.get('youtube_url')
-            
-            if not yt_url:
-                return JsonResponse({'error': 'Falta URL'}, status=400)
+    # DRF ya procesó el JSON por nosotros en request.data
+    yt_url = request.data.get('youtube_url')
+    
+    if not yt_url:
+        return Response({'error': 'Falta URL'}, status=status.HTTP_400_BAD_REQUEST)
 
-            print(f"🔄 Procesando con yt-dlp (Metadatos): {yt_url}")
+    # Imprimimos en consola quién está haciendo la petición para verificar el Login
+    print(f"🔄 Usuario {request.user.email} solicitó generar blog para: {yt_url}")
 
-            # Configuración para ser sigilosos y rápidos
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'skip_download': True, # Solo queremos info, no el video
-                'extract_flat': True,  # Extracción rápida
-            }
+    # --- FASE 1: EXTRACCIÓN (yt-dlp) ---
+    ydl_opts = {
+        'quiet': True, 'no_warnings': True, 'skip_download': True,
+        'writesubtitles': True, 'writeautomaticsub': True,
+        'sublangs': ['es', 'en'], 'outtmpl': '%(id)s',
+    }
+    
+    transcript_text = ""
+    video_title = "Sin título"
+    
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(yt_url, download=True)
+            video_id = info.get('id')
+            video_title = info.get('title')
 
-            video_title = "Sin título"
-            description = "Sin descripción"
-            video_id = "unknown"
+        generated_files = glob.glob(f"{video_id}*.vtt")
+        if generated_files:
+            subtitle_file = generated_files[0]
+            with open(subtitle_file, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+                clean_lines = []
+                seen_lines = set()
+                for line in lines:
+                    # Limpieza de basura VTT
+                    if '-->' in line or line.strip() == '' or 'WEBVTT' in line or '<' in line: continue
+                    text_line = line.strip()
+                    if text_line not in seen_lines:
+                        clean_lines.append(text_line)
+                        seen_lines.add(text_line)
+                transcript_text = " ".join(clean_lines)
+            os.remove(subtitle_file)
+        else:
+            transcript_text = info.get('description', '')
 
-            try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(yt_url, download=False)
-                    
-                    video_id = info.get('id', 'unknown')
-                    video_title = info.get('title', 'Sin título')
-                    description = info.get('description', '')
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-            except Exception as e:
-                print(f"❌ Error yt-dlp: {e}")
-                return JsonResponse({'error': f'No se pudo procesar el video. ¿Es privado?'}, status=400)
-            
-            # -------------------------------------------
-            # PREPARACIÓN PARA LA IA
-            # Como YouTube nos bloqueó los subtítulos, usaremos la Descripción
-            # para alimentar a la IA.
-            
-            content_source = f"""
-            TÍTULO DEL VIDEO: {video_title}
-            
-            DESCRIPCIÓN/RESUMEN:
-            {description}
-            
-            (Nota: Subtítulos no disponibles por bloqueo de IP, usando metadatos para generación).
-            """
+    # --- FASE 2: IA (PENDIENTE) ---
+    # Aquí irá OpenAI cuando tú me digas.
+    # Por ahora, pasamos directo a guardar la transcripción cruda.
 
-            # Guardamos en la Base de Datos
-            new_post = BlogPost.objects.create(
-                youtube_url=yt_url,
-                title=video_title,
-                content=content_source
-            )
+    # --- FASE 3: GUARDAR ---
+    new_post = BlogPost.objects.create(
+        user=request.user,
+        youtube_url=yt_url,
+        title=video_title,
+        content=transcript_text # Guardamos el texto extraído tal cual
+    )
 
-            print("✅ ¡Datos extraídos con éxito!")
-
-            return JsonResponse({
-                'id': new_post.id,
-                'title': new_post.title,
-                'content': new_post.content,
-                'youtube_url': new_post.youtube_url,
-                'created_at': new_post.created_at
-            })
-
-        except Exception as e:
-            print(f"🔥 ERROR GENERAL: {str(e)}")
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método no permitido'}, status=405)
+    return Response({
+        'id': new_post.id,
+        'title': new_post.title,
+        'content': new_post.content
+    })
