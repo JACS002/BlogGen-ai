@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-i)uit@*h$9x72*w!j3c)%kis%x0g#pgtdehrrdw%i_w^atj1*o
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 
 
 # Application definition
@@ -46,8 +46,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -126,21 +126,31 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
-# CORS CONFIGURATION
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+
 
 # CONFIGURACIÓN DE REST FRAMEWORK
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'blog_generator.authentication.CookieJWTAuthentication', 
     ),
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated', # Bloquea todo por defecto
+        'rest_framework.permissions.IsAuthenticated',
     ],
 }
+
+# CORS CONFIGURATION
+CORS_ALLOW_CREDENTIALS = True 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173", # Vite
+    "http://localhost:3000", # React Create App
+    "http://127.0.0.1:5173",
+]
+
+# Permite que las cookies viajen en peticiones POST desde estos orígenes
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 from datetime import timedelta
 SIMPLE_JWT = {

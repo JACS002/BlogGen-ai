@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from .serializers import SignupSerializer
 from .models import BlogPost
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 # Librerías de extracción (Sin OpenAI por ahora)
 import yt_dlp
@@ -89,3 +90,29 @@ def generate_blog_topic(request):
         'title': new_post.title,
         'content': new_post.content
     })
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        
+        if response.status_code == 200:
+            token = response.data['access']
+            
+            # CONFIGURACIÓN EXACTA PARA LOCALHOST / 127.0.0.1
+            response.set_cookie(
+                'access_token',     # Nombre exacto
+                token,
+                httponly=True,      # Seguridad
+                samesite='Lax',     # 'Lax' es lo mejor para desarrollo local
+                secure=False,       # False porque no tiene HTTPS
+                path='/',           # Disponible en toda la web
+                max_age=3600 * 24   
+            )
+            
+            # Borramos el token del cuerpo de la respuesta para forzar el uso de la cookie
+            if 'access' in response.data:
+                del response.data['access']
+            if 'refresh' in response.data:
+                del response.data['refresh']
+            
+        return response

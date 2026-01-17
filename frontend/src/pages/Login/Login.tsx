@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Sparkles, ArrowRight, Lock, Mail, AlertCircle } from "lucide-react"; // Agregué AlertCircle para errores
+import { Sparkles, ArrowRight, Lock, Mail, AlertCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 const LoginPage = () => {
@@ -8,12 +8,12 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const navigate = useNavigate(); // Hook para navegar
+  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError(""); // Limpiar errores previos
+    setError("");
 
     try {
       const response = await fetch("http://127.0.0.1:8000/api/login", {
@@ -21,25 +21,19 @@ const LoginPage = () => {
         headers: {
           "Content-Type": "application/json",
         },
+        // Esto permite al navegador recibir y guardar la cookie segura
+        credentials: "include",
         body: JSON.stringify({
-          username: email,
+          username: email, // Django espera 'username'
           password: password,
         }),
       });
 
-      const data = await response.json();
-
       if (response.ok) {
-        // Éxito: Guardamos el token
-        localStorage.setItem("accessToken", data.access);
-        localStorage.setItem("refreshToken", data.refresh);
-
-        console.log("Login exitoso. Token guardado.");
-
-        // Redirigir al Home o al generador
+        // La cookie 'access_token' se ha guardado automáticamente en el navegador.
+        console.log("Login exitoso via Cookies");
         navigate("/");
       } else {
-        // Error: Credenciales incorrectas
         setError("Credenciales inválidas. Verifica tu correo y contraseña.");
       }
     } catch (err) {
@@ -76,7 +70,7 @@ const LoginPage = () => {
         <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8 backdrop-blur-xl shadow-2xl">
           <h2 className="text-2xl font-bold mb-6 text-center">Welcome Back</h2>
 
-          {/* MENSAJE DE ERROR VISUAL */}
+          {/* Error Message */}
           {error && (
             <div className="mb-4 p-3 bg-red-500/10 border border-red-500/50 rounded-lg flex items-center gap-2 text-red-400 text-sm">
               <AlertCircle size={16} />

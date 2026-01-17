@@ -7,13 +7,11 @@ import {
   CheckCircle,
 } from "lucide-react";
 
-// Importing the Navbar component
 import { Navbar } from "../../components/Navbar";
 
 const HomePage = () => {
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  // 1. NUEVO ESTADO: Para guardar el contenido que devuelve Django
   const [blogContent, setBlogContent] = useState("");
   const [error, setError] = useState("");
 
@@ -22,16 +20,18 @@ const HomePage = () => {
     if (!url) return;
 
     setIsLoading(true);
-    setBlogContent(""); // Limpiar resultado anterior
+    setBlogContent("");
     setError("");
 
     try {
-      // 2. CONEXIÓN REAL: Llamamos a tu Backend
+      // Usamos localhost para coincidir con la cookie
       const response = await fetch("http://127.0.0.1:8000/api/generate-blog", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        // Esto envía la cookie HttpOnly al servidor
+        credentials: "include",
         body: JSON.stringify({
           youtube_url: url,
         }),
@@ -40,11 +40,17 @@ const HomePage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // Si todo salió bien, guardamos el contenido
         setBlogContent(data.content);
         console.log("Datos recibidos:", data);
       } else {
-        setError(data.error || "Ocurrió un error en el servidor");
+        // Manejo mejorado de errores (por si el token expiró)
+        if (response.status === 401) {
+          setError(
+            "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
+          );
+        } else {
+          setError(data.error || "Ocurrió un error en el servidor");
+        }
       }
     } catch (err) {
       console.error("Error de conexión:", err);
@@ -118,10 +124,10 @@ const HomePage = () => {
           </div>
         </form>
 
-        {/* 3. VISUALIZACIÓN DEL RESULTADO */}
+        {/* VISUALIZACIÓN DEL RESULTADO */}
         {error && (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-200 p-4 rounded-xl max-w-2xl mx-auto mb-12">
-            {error}
+          <div className="bg-red-500/10 border border-red-500/50 text-red-200 p-4 rounded-xl max-w-2xl mx-auto mb-12 flex items-center gap-2 justify-center">
+            ⚠️ {error}
           </div>
         )}
 
