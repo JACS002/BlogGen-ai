@@ -15,6 +15,7 @@ urlpatterns = [
     # Login: Nos da el token de acceso
     path('login', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     
+    path('logout', views.logout_view, name='logout'),
     # Refresh: Para cuando el token caduca (avanzado)
     path('token/refresh', TokenRefreshView.as_view(), name='token_refresh'),
 ]

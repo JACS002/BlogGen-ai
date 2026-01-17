@@ -13,13 +13,21 @@ export const Navbar = () => {
     setIsAuth(loggedIn);
   }, [location]);
 
-  const handleLogout = () => {
-    // 1. Borramos la bandera visual
-    localStorage.removeItem("isAuthenticated");
-    // 2. Actualizamos el estado
-    setIsAuth(false);
-    // 3. Redirigimos al login
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      // 1. Avisamos al Backend para que mate la cookie
+      await fetch("http://127.0.0.1:8000/api/logout", {
+        method: "POST",
+        credentials: "include", // Enviar la cookie para que sepa cuál borrar
+      });
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+    } finally {
+      // 2. Limpieza Visual (Frontend)
+      localStorage.removeItem("isAuthenticated");
+      setIsAuth(false);
+      navigate("/login");
+    }
   };
 
   return (

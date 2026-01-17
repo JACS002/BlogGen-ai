@@ -22,7 +22,16 @@ def signup(request):
         return Response({"message": "Usuario creado exitosamente"}, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# --- VISTA DE GENERACIÓN (Protegida 🔒) ---
+@api_view(['POST'])
+def logout_view(request):
+    response = Response({"message": "Logout exitoso"}, status=status.HTTP_200_OK)
+    
+    # Esta es la orden para destruir la cookie en el navegador
+    response.delete_cookie('access_token')
+    
+    return response
+
+# --- VISTA DE GENERACIÓN ---
 @api_view(['POST'])
 @permission_classes([IsAuthenticated]) # <--- REQUISITO: Token JWT válido en el Header
 def generate_blog_topic(request):
