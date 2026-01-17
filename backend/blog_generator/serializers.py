@@ -21,3 +21,10 @@ class BlogPostSerializer(serializers.ModelSerializer):
         model = BlogPost
         # Definimos qué campos queremos enviarle al Frontend
         fields = ['id', 'title', 'youtube_url', 'content', 'created_at']
+
+# Serializer para ver y editar el perfil del usuario
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name']
+        read_only_fields = ['id', 'username', 'email'] # El email es el usuario, mejor no tocarlo por ahora

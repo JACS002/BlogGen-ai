@@ -3,7 +3,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from .serializers import SignupSerializer, BlogPostSerializer
+from .serializers import SignupSerializer, BlogPostSerializer, UserSerializer
 from rest_framework import generics
 from .models import BlogPost
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -142,3 +142,12 @@ class BlogDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         # Filtramos para asegurar que solo puedes borrar/editar TUS propios blogs
         return BlogPost.objects.filter(user=self.request.user)
+    
+# Vista para ver y editar el perfil PROPIO
+class ManageUserView(generics.RetrieveUpdateAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        # En lugar de buscar por ID en la URL, devolvemos directamente al usuario logueado
+        return self.request.user

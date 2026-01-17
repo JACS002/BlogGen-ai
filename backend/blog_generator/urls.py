@@ -25,4 +25,7 @@ urlpatterns = [
 
     # Detalle, actualización y borrado de un blog específico
     path('blog-posts/<int:pk>/', views.BlogDetailAPIView.as_view(), name='blog-detail'),
+
+    # Gestión del perfil del usuario
+    path('user/me', views.ManageUserView.as_view(), name='user-me'),
 ]

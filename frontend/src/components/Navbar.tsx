@@ -79,9 +79,12 @@ export const Navbar = () => {
                 Logout
               </button>
 
-              <div className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/50 flex items-center justify-center text-indigo-400">
+              <Link
+                to="/profile"
+                className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/50 flex items-center justify-center text-indigo-400 hover:bg-indigo-500/30 transition cursor-pointer"
+              >
                 <User size={16} />
-              </div>
+              </Link>
             </>
           ) : (
             <Link
@@ -101,9 +104,12 @@ export const Navbar = () => {
             <>
               {/* Usuario Info en Móvil */}
               <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
-                <div className="w-10 h-10 rounded-full bg-indigo-500/20 border border-indigo-500/50 flex items-center justify-center text-indigo-400">
+                <Link
+                  to="/profile"
+                  className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/50 flex items-center justify-center text-indigo-400 hover:bg-indigo-500/30 transition cursor-pointer"
+                >
                   <User size={20} />
-                </div>
+                </Link>
                 <div>
                   <p className="text-sm font-medium text-white">Mi Cuenta</p>
                   <p className="text-xs text-slate-500">Sesión iniciada</p>
