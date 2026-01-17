@@ -28,4 +28,6 @@ urlpatterns = [
 
     # Gestión del perfil del usuario
     path('user/me', views.ManageUserView.as_view(), name='user-me'),
+
+    path('user/change-password', views.change_password, name='change-password')
 ]

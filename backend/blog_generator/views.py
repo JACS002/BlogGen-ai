@@ -3,7 +3,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from .serializers import SignupSerializer, BlogPostSerializer, UserSerializer
+from .serializers import ChangePasswordSerializer, SignupSerializer, BlogPostSerializer, UserSerializer
 from rest_framework import generics
 from .models import BlogPost
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -143,11 +143,39 @@ class BlogDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         # Filtramos para asegurar que solo puedes borrar/editar TUS propios blogs
         return BlogPost.objects.filter(user=self.request.user)
     
-# Vista para ver y editar el perfil PROPIO
-class ManageUserView(generics.RetrieveUpdateAPIView):
+
+    # Modificamos la herencia para permitir DESTROY (Borrar)
+class ManageUserView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
-        # En lugar de buscar por ID en la URL, devolvemos directamente al usuario logueado
         return self.request.user
+    
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    serializer = ChangePasswordSerializer(data=request.data)
+    
+    if serializer.is_valid():
+        user = request.user
+        
+        # 1. Verificar que la contraseña antigua sea correcta
+        if not user.check_password(serializer.data.get('old_password')):
+            return Response(
+                {"old_password": ["Wrong password."]}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # 2. Asignar la nueva contraseña (hasheada automáticamente)
+        user.set_password(serializer.data.get('new_password'))
+        user.save()
+        
+        # 3. Al cambiar contraseña, Django cierra sesión por seguridad.
+        # Debemos mantener al usuario logueado o pedirle que loguee de nuevo.
+        # En este caso, como usamos JWT/Cookies, el token sigue siendo válido hasta que expire,
+        # así que no necesitamos hacer nada extra aquí.
+        
+        return Response({"message": "Password updated successfully"}, status=status.HTTP_200_OK)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
