@@ -1,37 +1,67 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Youtube,
   Sparkles,
   ArrowRight,
   FileText,
   CheckCircle,
+  AlertCircle, // Icono para errores bonitos
 } from "lucide-react";
-
+import { Link, useNavigate } from "react-router-dom";
 import { Navbar } from "../../components/Navbar";
 
+// Definimos la interfaz para los items de características (Feature Grid)
+interface FeatureItem {
+  title: string;
+  desc: string;
+  icon: React.ReactNode;
+}
+
 const HomePage = () => {
-  const [url, setUrl] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [blogContent, setBlogContent] = useState("");
-  const [error, setError] = useState("");
+  // Tipado explícito de estados
+  const [url, setUrl] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [blogContent, setBlogContent] = useState<string>("");
+  const [error, setError] = useState<string>("");
+  const [isAuth, setIsAuth] = useState<boolean>(false);
+
+  // Hook de navegación
+  const navigate = useNavigate();
+
+  // 1. Verificamos si está logueado al cargar la página
+  useEffect(() => {
+    const loggedIn = localStorage.getItem("isAuthenticated") === "true";
+    setIsAuth(loggedIn);
+  }, []);
 
   const handleGenerate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!url) return;
+
+    // Limpieza de estados previos
+    setError("");
+    setBlogContent("");
+
+    // --- VALIDACIÓN 1: ¿Usuario Logueado? ---
+    if (!isAuth) {
+      setError("Please log in to generate viral blogs.");
+      return; // Detenemos la función aquí
+    }
+
+    // --- VALIDACIÓN 2: ¿URL vacía? ---
+    if (!url.trim()) {
+      setError("Please paste a YouTube URL to start.");
+      return;
+    }
 
     setIsLoading(true);
-    setBlogContent("");
-    setError("");
 
     try {
-      // Usamos localhost para coincidir con la cookie
       const response = await fetch("http://127.0.0.1:8000/api/generate-blog", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        // Esto envía la cookie HttpOnly al servidor
-        credentials: "include",
+        credentials: "include", // Importante para enviar la cookie
         body: JSON.stringify({
           youtube_url: url,
         }),
@@ -41,20 +71,22 @@ const HomePage = () => {
 
       if (response.ok) {
         setBlogContent(data.content);
-        console.log("Datos recibidos:", data);
+        // Opcional: Si quisieras redirigir al detalle:
+        // navigate(`/blog/${data.id}`);
       } else {
-        // Manejo mejorado de errores (por si el token expiró)
+        // Manejo de errores del servidor
         if (response.status === 401) {
-          setError(
-            "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
-          );
+          setError("Your session has expired. Please log in again.");
+          // Limpiamos la sesión local si el token expiró
+          localStorage.removeItem("isAuthenticated");
+          setIsAuth(false);
         } else {
-          setError(data.error || "Ocurrió un error en el servidor");
+          setError(data.error || "An error occurred on the server.");
         }
       }
     } catch (err) {
-      console.error("Error de conexión:", err);
-      setError("No se pudo conectar con el servidor. ¿Está encendido Django?");
+      console.error("Connection error:", err);
+      setError("Could not connect to the server. Is Django running?");
     } finally {
       setIsLoading(false);
     }
@@ -65,6 +97,7 @@ const HomePage = () => {
       <Navbar />
 
       <main className="max-w-4xl mx-auto px-6 pt-20 pb-32 text-center">
+        {/* Badge "Powered by..." */}
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs text-indigo-400 mb-8 font-medium animate-fade-in-up">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
@@ -73,6 +106,7 @@ const HomePage = () => {
           Powered by Django & React
         </div>
 
+        {/* Título Principal */}
         <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-500 tracking-tight">
           Turn videos into <br />
           <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">
@@ -88,7 +122,7 @@ const HomePage = () => {
         {/* Formulario */}
         <form
           onSubmit={handleGenerate}
-          className="relative max-w-2xl mx-auto group mb-12"
+          className="relative max-w-2xl mx-auto group mb-8"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-cyan-500 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
           <div className="relative flex items-center bg-slate-900 border border-slate-800 rounded-2xl p-2 shadow-2xl">
@@ -100,7 +134,10 @@ const HomePage = () => {
               placeholder="Paste YouTube link here..."
               className="flex-1 bg-transparent border-none text-white placeholder-slate-500 focus:ring-0 px-4 py-3 outline-none w-full"
               value={url}
-              onChange={(e) => setUrl(e.target.value)}
+              onChange={(e) => {
+                setUrl(e.target.value);
+                if (error) setError(""); // Limpiar error mientras escribe
+              }}
             />
             <button
               type="submit"
@@ -124,18 +161,40 @@ const HomePage = () => {
           </div>
         </form>
 
-        {/* VISUALIZACIÓN DEL RESULTADO */}
+        {/* --- MENSAJES DE ERROR / ADVERTENCIA "BONITOS" --- */}
         {error && (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-200 p-4 rounded-xl max-w-2xl mx-auto mb-12 flex items-center gap-2 justify-center">
-            ⚠️ {error}
+          <div className="animate-in fade-in slide-in-from-top-2 duration-300 max-w-md mx-auto mb-12">
+            <div
+              className={`p-4 rounded-xl flex items-center gap-3 text-sm text-left border shadow-lg
+                ${
+                  error.includes("log in")
+                    ? "bg-indigo-500/10 border-indigo-500/50 text-indigo-300" // Estilo azul para Login
+                    : "bg-red-500/10 border-red-500/50 text-red-200" // Estilo rojo para errores
+                }
+            `}
+            >
+              <AlertCircle size={20} className="shrink-0" />
+              <div className="flex-1">{error}</div>
+
+              {/* Botón de Login inline si el error es de autenticación */}
+              {error.includes("log in") && (
+                <Link
+                  to="/login"
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shrink-0"
+                >
+                  Log In
+                </Link>
+              )}
+            </div>
           </div>
         )}
 
+        {/* --- RESULTADO DEL BLOG --- */}
         {blogContent && (
-          <div className="text-left bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-3xl mx-auto shadow-2xl animate-fade-in-up">
+          <div className="text-left bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-3xl mx-auto shadow-2xl animate-fade-in-up mb-12">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
               <Sparkles className="text-yellow-400" size={24} />
-              Blog Generado:
+              Generated Blog:
             </h2>
             <div className="prose prose-invert max-w-none text-slate-300 whitespace-pre-line">
               {blogContent}
@@ -143,7 +202,7 @@ const HomePage = () => {
           </div>
         )}
 
-        {/* Social Proof */}
+        {/* Social Proof Icons */}
         <div className="mt-12 flex flex-wrap justify-center gap-4 text-sm text-slate-500">
           <span className="flex items-center gap-1">
             <CheckCircle size={14} className="text-indigo-500" /> Auto
@@ -179,7 +238,7 @@ const HomePage = () => {
                 desc: "Copy content in Markdown or HTML directly to your CMS.",
                 icon: <ArrowRight className="text-purple-400" />,
               },
-            ].map((feature, idx) => (
+            ].map((feature: FeatureItem, idx: number) => (
               <div
                 key={idx}
                 className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition"
