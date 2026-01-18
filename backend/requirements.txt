@@ -1,0 +1,19 @@
+# --- Core Framework ---
+django>=5.0
+djangorestframework
+django-cors-headers
+
+# --- Autenticación y Seguridad ---
+djangorestframework-simplejwt
+
+# --- Base de Datos (PostgreSQL) ---
+# Usamos -binary para evitar compilar dependencias complejas en Docker
+psycopg2-binary
+
+# --- Utilidades y Entorno ---
+python-dotenv
+requests
+
+# --- Inteligencia Artificial y Video ---
+groq
+yt-dlp

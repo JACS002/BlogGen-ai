@@ -15,11 +15,14 @@ import os
 from datetime import timedelta
 from dotenv import load_dotenv
 
-load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+dotenv_path = BASE_DIR.parent / '.env'
+#imprimir ruta de dotenv_path
+print(f"Loading environment variables from: {dotenv_path}")
+load_dotenv(dotenv_path)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
