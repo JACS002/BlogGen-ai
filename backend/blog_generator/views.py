@@ -1,54 +1,145 @@
-from django.contrib.auth.models import User
-from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.response import Response
-from .serializers import ChangePasswordSerializer, SignupSerializer, BlogPostSerializer, UserSerializer
-from rest_framework import generics
-from .models import BlogPost
-from rest_framework_simplejwt.views import TokenObtainPairView
-from groq import Groq
-# Librerías de extracción (Sin OpenAI por ahora)
-import yt_dlp
 import os
 import glob
 import dotenv
+import yt_dlp
+from groq import Groq
 
-dotenv.load_dotenv()  # Cargar variables de entorno desde el archivo .env
+from django.contrib.auth.models import User
+from rest_framework import status, generics
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.response import Response
+from rest_framework_simplejwt.views import TokenObtainPairView
+
+from .models import BlogPost
+from .serializers import (
+    ChangePasswordSerializer, 
+    SignupSerializer, 
+    BlogPostSerializer, 
+    UserSerializer
+)
+
+# cargar variables de entorno
+dotenv.load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 client = Groq(api_key=GROQ_API_KEY)
 
-# --- VISTA DE REGISTRO (Pública) ---
+
+# ==============================================================================
+# 1. AUTENTICACIÓN Y USUARIOS
+# ==============================================================================
+
+# vista de registro (pública)
 @api_view(['POST'])
-@permission_classes([AllowAny]) # Cualquiera puede registrarse sin token
+@permission_classes([AllowAny])
 def signup(request):
     serializer = SignupSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
-        return Response({"message": "Usuario creado exitosamente"}, status=status.HTTP_201_CREATED)
+        return Response({"message": "User created successfully"}, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# vista de logout (borra la cookie)
 @api_view(['POST'])
 def logout_view(request):
-    response = Response({"message": "Logout exitoso"}, status=status.HTTP_200_OK)
-    
-    # Esta es la orden para destruir la cookie en el navegador
+    response = Response({"message": "Logout successful"}, status=status.HTTP_200_OK)
     response.delete_cookie('access_token')
-    
-    return response
+    return Response({"message": "Logout successful"}, status=status.HTTP_200_OK)
 
-# --- VISTA DE GENERACIÓN ---
+# login personalizado para usar cookies http-only
+class CustomTokenObtainPairView(TokenObtainPairView):
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        
+        if response.status_code == 200:
+            token = response.data['access']
+            response.set_cookie(
+                'access_token',
+                token,
+                httponly=True,
+                samesite='Lax',
+                secure=False, # cambiar a True en producción con https
+                path='/',
+                max_age=3600 * 24
+            )
+            # borramos el token del body para forzar el uso de cookie
+            if 'access' in response.data:
+                del response.data['access']
+            if 'refresh' in response.data:
+                del response.data['refresh']
+        
+        return response
+
+# vista para ver, editar y borrar el perfil propio
+class ManageUserView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+# vista para cambiar contraseña
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    serializer = ChangePasswordSerializer(data=request.data)
+    
+    if serializer.is_valid():
+        user = request.user
+        
+        # verificar contraseña antigua
+        if not user.check_password(serializer.data.get('old_password')):
+            return Response(
+                {"old_password": ["Wrong password."]}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # asignar nueva contraseña
+        user.set_password(serializer.data.get('new_password'))
+        user.save()
+        
+        return Response({"message": "Password updated successfully"}, status=status.HTTP_200_OK)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ==============================================================================
+# 2. GESTIÓN DE BLOGS (CRUD)
+# ==============================================================================
+
+# listar blogs del usuario
+class BlogListAPIView(generics.ListAPIView):
+    serializer_class = BlogPostSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # filtra solo los blogs del usuario actual
+        return BlogPost.objects.filter(user=self.request.user).order_by('-created_at')
+
+# detalle, actualizar y borrar un blog específico
+class BlogDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = BlogPostSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return BlogPost.objects.filter(user=self.request.user)
+
+
+# ==============================================================================
+# 3. GENERACIÓN DE CONTENIDO (IA)
+# ==============================================================================
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_blog_topic(request):
     yt_url = request.data.get('youtube_url')
     
     if not yt_url:
-        return Response({'error': 'Falta URL'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'URL is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-    print(f"🔄 Usuario {request.user.email} procesando: {yt_url}")
+    print(f" Usuario {request.user.email} procesando: {yt_url}")
 
-    # --- FASE 1: EXTRACCIÓN (Igual que antes) ---
+    # --- fase 1: extracción con yt-dlp ---
     ydl_opts = {
         'quiet': True, 'no_warnings': True, 'skip_download': True,
         'writesubtitles': True, 'writeautomaticsub': True,
@@ -56,14 +147,15 @@ def generate_blog_topic(request):
     }
     
     transcript_text = ""
-    video_title = "Sin título"
+    video_title = "Untitled"
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(yt_url, download=True)
             video_id = info.get('id')
-            video_title = info.get('title')
+            video_title = info.get('title', 'Untitled')
 
+        # buscar archivos de subtítulos generados
         generated_files = glob.glob(f"{video_id}*.vtt")
         if generated_files:
             subtitle_file = generated_files[0]
@@ -72,6 +164,7 @@ def generate_blog_topic(request):
                 clean_lines = []
                 seen_lines = set()
                 for line in lines:
+                    # limpieza básica de formato vtt
                     if '-->' in line or line.strip() == '' or 'WEBVTT' in line or '<' in line: continue
                     text_line = line.strip()
                     if text_line not in seen_lines:
@@ -80,12 +173,13 @@ def generate_blog_topic(request):
                 transcript_text = " ".join(clean_lines)
             os.remove(subtitle_file)
         else:
+            # fallback a la descripción si no hay subtítulos
             transcript_text = info.get('description', '')
 
     except Exception as e:
-        return Response({'error': f"Error extrayendo video: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'error': f"Error extracting video: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
+    # validación de longitud para proteger la ia
     MAX_CHARS = 100000
     if len(transcript_text) > MAX_CHARS:
         return Response(
@@ -93,11 +187,10 @@ def generate_blog_topic(request):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    # --- FASE 2: INTELIGENCIA ARTIFICIAL (GROQ) ---
+    # --- fase 2: inteligencia artificial (groq) ---
     try:
         print(" Enviando a Groq (LPU Inference)...")
         
-        # MODELO: Usaremos 'llama-3.3-70b-versatile'
         MODEL_NAME = "llama-3.3-70b-versatile"
 
         prompt_system = """
@@ -132,7 +225,7 @@ def generate_blog_topic(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
-    # --- FASE 3: GUARDAR ---
+    # --- fase 3: guardar ---
     new_post = BlogPost.objects.create(
         user=request.user,
         youtube_url=yt_url,
@@ -145,81 +238,3 @@ def generate_blog_topic(request):
         'title': new_post.title,
         'content': new_post.content
     })
-
-class CustomTokenObtainPairView(TokenObtainPairView):
-    def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
-        
-        if response.status_code == 200:
-            token = response.data['access']
-            
-            response.set_cookie(
-                'access_token',     # Nombre exacto
-                token,
-                httponly=True,      # Seguridad
-                samesite='Lax',     # 'Lax'
-                secure=False,       # False porque no tiene HTTPS
-                path='/',           # Disponible en toda la web
-                max_age=3600 * 24   
-            )
-            
-            # Borramos el token del cuerpo de la respuesta para forzar el uso de la cookie
-            if 'access' in response.data:
-                del response.data['access']
-            if 'refresh' in response.data:
-                del response.data['refresh']
-            
-        return response
-    
-class BlogListAPIView(generics.ListAPIView):
-    serializer_class = BlogPostSerializer
-    permission_classes = [IsAuthenticated] # Solo usuarios logueados
-
-    def get_queryset(self):
-        # Esto filtra para que solo veas TUS propios blogs
-        return BlogPost.objects.filter(user=self.request.user).order_by('-created_at')
-    
-class BlogDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = BlogPostSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        # Filtramos para asegurar que solo puedes borrar/editar TUS propios blogs
-        return BlogPost.objects.filter(user=self.request.user)
-    
-
-    # Modificamos la herencia para permitir DESTROY (Borrar)
-class ManageUserView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_object(self):
-        return self.request.user
-    
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def change_password(request):
-    serializer = ChangePasswordSerializer(data=request.data)
-    
-    if serializer.is_valid():
-        user = request.user
-        
-        # 1. Verificar que la contraseña antigua sea correcta
-        if not user.check_password(serializer.data.get('old_password')):
-            return Response(
-                {"old_password": ["Wrong password."]}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-            
-        # 2. Asignar la nueva contraseña (hasheada automáticamente)
-        user.set_password(serializer.data.get('new_password'))
-        user.save()
-        
-        # 3. Al cambiar contraseña, Django cierra sesión por seguridad.
-        # Debemos mantener al usuario logueado o pedirle que loguee de nuevo.
-        # En este caso, como usamos JWT/Cookies, el token sigue siendo válido hasta que expire,
-        # así que no necesitamos hacer nada extra aquí.
-        
-        return Response({"message": "Password updated successfully"}, status=status.HTTP_200_OK)
-
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
