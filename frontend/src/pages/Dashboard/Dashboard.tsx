@@ -66,9 +66,11 @@ const Dashboard = () => {
     fetchBlogs();
   }, []);
 
+  const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+
   const fetchBlogs = async () => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/blog-posts", {
+      const response = await fetch(`${API_URL}/api/blog-posts`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -113,7 +115,7 @@ const Dashboard = () => {
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/api/blog-posts/${blogToDelete}/`,
+        `${API_URL}/api/blog-posts/${blogToDelete}/`,
         {
           method: "DELETE",
           credentials: "include",

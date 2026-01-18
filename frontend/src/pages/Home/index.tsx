@@ -59,6 +59,8 @@ const HomePage = () => {
     setIsAuth(loggedIn);
   }, []);
 
+  const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+
   const handleGenerate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
@@ -78,7 +80,7 @@ const HomePage = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/generate-blog", {
+      const response = await fetch(`${API_URL}/api/generate-blog`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

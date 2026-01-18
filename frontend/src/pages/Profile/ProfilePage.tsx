@@ -59,6 +59,8 @@ const ProfilePage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+
   // 1. Cargar datos del usuario
   useEffect(() => {
     fetchProfile();
@@ -66,7 +68,7 @@ const ProfilePage = () => {
 
   const fetchProfile = async () => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/user/me", {
+      const response = await fetch(`${API_URL}/api/user/me`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -92,7 +94,7 @@ const ProfilePage = () => {
     setProfileStatus(null);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/user/me", {
+      const response = await fetch(`${API_URL}/api/user/me`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -128,18 +130,15 @@ const ProfilePage = () => {
     setPassStatus(null);
 
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/user/change-password",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            old_password: oldPassword,
-            new_password: newPassword,
-          }),
-        },
-      );
+      const response = await fetch(`${API_URL}/api/user/change-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          old_password: oldPassword,
+          new_password: newPassword,
+        }),
+      });
 
       const data = await response.json();
 
@@ -166,7 +165,7 @@ const ProfilePage = () => {
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/user/me", {
+      const response = await fetch(`${API_URL}/api/user/me`, {
         method: "DELETE",
         credentials: "include",
       });

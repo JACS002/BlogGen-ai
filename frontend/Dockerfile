@@ -1,18 +1,19 @@
-# Usamos Node.js
-FROM node:18-alpine
+# Usamos Node 20 Slim (Debian)
+FROM node:20-slim
 
-# Directorio de trabajo
 WORKDIR /app
 
-# Copiar package.json e instalar dependencias
-COPY package.json package-lock.json ./
+# 1. Copiamos SOLO el package.json (Ignoramos el lockfile del host)
+COPY package.json ./
+
+# 2. Instalamos dependencias limpias para Linux
 RUN npm install
 
-# Copiar el código fuente
+# 3. Copiamos el código fuente
 COPY . .
 
-# Exponer el puerto de Vite (generalmente 5173)
+# Exponemos el puerto
 EXPOSE 5173
 
-# Comando para iniciar
+# Arrancamos
 CMD ["npm", "run", "dev", "--", "--host"]

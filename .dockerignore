@@ -1,0 +1,16 @@
+# Ignorar dependencias locales del Frontend
+frontend/node_modules
+frontend/dist
+frontend/package-lock.json
+
+# Ignorar dependencias locales del Backend
+backend/venv
+backend/.venv
+backend/__pycache__
+backend/staticfiles
+backend/*.pyc
+
+# Ignorar sistema
+.git
+.gitignore
+.env

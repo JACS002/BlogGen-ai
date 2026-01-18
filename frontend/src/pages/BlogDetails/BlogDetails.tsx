@@ -90,18 +90,16 @@ const BlogDetails = () => {
   // Estado para notificaciones visuales
   const [saveStatus, setSaveStatus] = useState<SaveStatus | null>(null);
 
+  const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
   // 1. Cargar el Blog
   useEffect(() => {
     const fetchBlog = async () => {
       try {
-        const response = await fetch(
-          `http://127.0.0.1:8000/api/blog-posts/${id}/`,
-          {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-          },
-        );
+        const response = await fetch(`${API_URL}/api/blog-posts/${id}/`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        });
 
         if (response.ok) {
           const data = await response.json();
@@ -135,19 +133,16 @@ const BlogDetails = () => {
     setSaveStatus(null);
 
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/blog-posts/${id}/`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            title: title,
-            content: content,
-            youtube_url: metaData.youtubeUrl,
-          }),
-        },
-      );
+      const response = await fetch(`${API_URL}/api/blog-posts/${id}/`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title: title,
+          content: content,
+          youtube_url: metaData.youtubeUrl,
+        }),
+      });
 
       if (response.ok) {
         setOriginalTitle(title);
@@ -169,13 +164,10 @@ const BlogDetails = () => {
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/blog-posts/${id}/`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        },
-      );
+      const response = await fetch(`${API_URL}/api/blog-posts/${id}/`, {
+        method: "DELETE",
+        credentials: "include",
+      });
 
       if (response.ok) {
         navigate("/dashboard");
