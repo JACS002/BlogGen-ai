@@ -86,18 +86,18 @@ This project follows a decoupled client-server architecture, containerized with 
 
 ```mermaid
 graph TD
-    User[Client Browser] -->|HTTP/HTTPS| Frontend[React + Vite Frontend]
-    Frontend -->|REST API Calls| Backend[Django REST Framework]
-
-    subgraph Docker Container Network
-        Backend -->|Auth & Data| DB[(PostgreSQL Database)]
-        Backend -->|Extract Subtitles| YT[yt-dlp Service]
-        Backend -->|AI Inference| Groq[Groq API (Llama 3)]
+    User["Client Browser"] -->|HTTP/HTTPS| Frontend["React + Vite Frontend"]
+    Frontend -->|"REST API Calls"| Backend["Django REST Framework"]
+    
+    subgraph Docker["Docker Container Network"]
+        Backend -->|"Auth & Data"| DB[("PostgreSQL Database")]
+        Backend -->|"Extract Subtitles"| YT["yt-dlp Service"]
+        Backend -->|"AI Inference"| Groq["Groq API (Llama 3)"]
     end
-
-    subgraph Security Layer
-        Backend -- HttpOnly Cookie --> User
-        Backend -- CSRF Token --> User
+    
+    subgraph Security["Security Layer"]
+        Backend -- "HttpOnly Cookie" --> User
+        Backend -- "CSRF Token" --> User
     end
 ```
 
@@ -168,13 +168,12 @@ Ensure you have the following installed:
 
 ```bash
 git clone https://github.com/JACS002/BlogGen-ai
-cd ai-blog-generator
 ```
 
 2. **Configure environment variables**
 
 ```bash
-cp .env.example .env
+touch .env
 nano .env  # or use your preferred editor
 ```
 
