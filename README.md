@@ -11,6 +11,8 @@
 [![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![Groq](https://img.shields.io/badge/Groq-Llama_3.3-FF6B6B?style=for-the-badge)](https://groq.com/)
 
+[Overview](#-overview) • [Architecture](#️-architecture) • [AI Engineering](#-ai-engineering-strategy) • [Tech Stack](#️-tech-stack) • [API Endpoints](#-api-endpoints) • [Installation](#-installation)
+
 </div>
 
 ---
