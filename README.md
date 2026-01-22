@@ -169,9 +169,37 @@ cp .env.example .env
 Set environment variables:
 
 ```env
-GROQ_API_KEY=gsk_your_key_here
+
+# Django Settings
+
+SECRET_KEY=your-secret-key-here-generate-with-django
+
+DEBUG=True
+
+ALLOWED_HOSTS=localhost,127.0.0.1
+
+
+
+# Database Configuration
+
+DB_NAME=blog_db
+
+DB_USER=postgres
+
 DB_PASSWORD=postgres
-SECRET_KEY=unsafe-secret-key
+
+DB_HOST=db
+
+DB_PORT=5432
+
+
+
+# AI Service
+
+GROQ_API_KEY=your-groq-api-key-here
+
+
+
 ```
 
 Deploy the stack:
