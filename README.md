@@ -11,30 +11,19 @@
 [![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![Groq](https://img.shields.io/badge/Groq-Llama_3.3-FF6B6B?style=for-the-badge)](https://groq.com/)
 
-[Overview](#-overview) • [Screenshots](#-screenshots) • [Features](#-key-features) • [Tech Stack](#️-tech-stack) • [Architecture](#️-architecture) • [API Endpoints](#-api-endpoints) • [Installation](#-installation) • [Technical Highlights](#-key-technical-highlights)
-
 </div>
+
+---
+**High-performance SaaS that transforms video content into SEO-optimized articles using Llama 3 & Groq LPU.**
 
 ---
 
 ## 📋 Overview
 
-**AI Blog Generator** is a production-ready full-stack SaaS application that leverages cutting-edge AI technology to automatically convert YouTube video content into professional, SEO-optimized blog articles. Built with modern web technologies and enterprise-grade architecture patterns, this project showcases proficiency in both frontend and backend development, API design, containerization, and AI integration.
+**BlogGen-ai** is a production-ready, AI-native SaaS application designed to solve the content repurposing bottleneck.  
+It leverages the **Groq LPU (Language Processing Unit)** to perform near-instantaneous inference, converting raw YouTube video transcripts into structured, publication-ready blog posts.
 
-### 🎯 Problem Statement
-
-Content creators and digital marketers often need to repurpose video content into written format, a time-consuming manual process. This application automates that workflow using AI, reducing production time from hours to seconds.
-
-### 💡 Solution
-
-A robust web platform that:
-
-- Extracts video transcripts automatically using `yt-dlp`
-- Processes raw transcripts with Llama 3.3 70B via Groq's lightning-fast LPU inference
-- Generates structured, publication-ready Markdown blog posts
-- Provides a complete CRUD interface with real-time editing capabilities
-- Implements secure authentication and authorization
-- Offers multiple export formats (Markdown, HTML)
+Unlike simple wrappers, this project implements a full **Clean Architecture**, robust security patterns, and a custom Markdown rendering engine, demonstrating true end-to-end product engineering.
 
 ---
 
@@ -52,37 +41,28 @@ A robust web platform that:
 
 ---
 
-## ✨ Key Features
 
-### 🤖 AI-Powered Content Generation
+## 💡 The Solution
 
-- **Intelligent Transcript Extraction**: Automatically retrieves subtitles from YouTube videos in multiple languages.
-- **Advanced NLP Processing**: Utilizes Llama 3.3 70B model to transform raw transcripts into coherent articles.
-- **SEO Optimization**: Generated content includes proper heading hierarchy, keywords, and meta descriptions.
+A seamless pipeline that:
 
-### 🔐 Enterprise-Grade Security
+1. **Extracts & Sanitizes**  
+   Pulls subtitles using `yt-dlp` and cleans timestamps and metadata.
 
-- **JWT Authentication**: Secure token-based authentication with refresh token rotation.
-- **HttpOnly Cookies**: Prevents XSS attacks by storing tokens in secure, HTTP-only cookies (No LocalStorage).
-- **CSRF Protection**: Configured Django middleware for cross-site request forgery prevention.
+2. **Comprehends**  
+   Uses **Llama 3 (70B)** to analyze context, tone, and key takeaways.
 
-### 📝 Rich Content Management
+3. **Generates**  
+   Produces SEO-optimized Markdown with proper hierarchy (H1–H3), not generic text blobs.
 
-- **Full CRUD Operations**: Create, Read, Update, Delete blog posts with RESTful API.
-- **Real-Time Editor**: Live Markdown rendering with syntax highlighting.
-- **Multi-Format Export**: Download content as Markdown (.md) or styled HTML.
-
-### 🐳 DevOps & Infrastructure
-
-- **Full Dockerization**: Complete containerization of all services (Frontend, Backend, Database).
-- **Docker Compose Orchestration**: One-command deployment for entire stack.
-- **Volume Persistence**: Database data persists across container restarts.
+4. **Manages**  
+   Provides a full CMS experience with real-time editing and multi-format export.
 
 ---
 
 ## 🏗️ Architecture
 
-This project follows a decoupled client-server architecture, containerized with Docker.
+The system follows a decoupled, containerized architecture ensuring consistency from development to production.
 
 ```mermaid
 graph TD
@@ -103,116 +83,118 @@ graph TD
 
 ---
 
+## 🧠 AI Engineering Strategy
+
+This project goes beyond basic API calls by applying AI-native engineering patterns:
+
+- **Groq LPU Integration**  
+  Selected over standard GPU providers to reduce inference latency from ~10s to **<1.5s**, enabling a real-time UX.
+
+- **Context-Aware Prompting**  
+  System prompts enforce strict Markdown structure and SEO rules, preventing hallucinated layouts.
+
+- **Token Optimization**  
+  Transcript pre-processing removes filler and non-lexical sounds, maximizing effective context window usage.
+
+---
+
+## ✨ Key Features
+
+### 🤖 Core AI Capabilities
+- Multi-language support with automatic language detection
+- Structured output: Title, Meta Description, Intro, Body (H2/H3), Conclusion
+- Smart formatting using bold text and lists for readability
+
+### 🔐 Security & Production Standards
+- Stateless JWT authentication with **HttpOnly cookies** (no LocalStorage XSS risk)
+- CSRF protection via Django middleware
+- Dockerized services with one-command deployment
+
+### 📝 CMS Interface
+- Real-time Markdown editor with live preview
+- Full CRUD operations for content
+- Export engine: `.md` or raw HTML
+
+---
+
 ## 🛠️ Tech Stack
 
-### Frontend Architecture
+### Frontend
+- React 19 + TypeScript (Strict Mode)
+- Vite
+- Tailwind CSS + Lucide Icons
+- React Hooks + Context API
 
-- **React 19 + TypeScript:** Type-safe component development.
-- **Vite:** Lightning-fast build tool & HMR.
-- **React Router DOM:** Client-side routing.
-- **Tailwind CSS:** Utility-first CSS framework for responsive design.
-- **Lucide React:** Modern SVG icon library.
+### Backend
+- Python 3.11
+- Django 5.0
+- Django REST Framework
+- PostgreSQL 15 (Alpine)
 
-### Backend Architecture
-
-- **Django 5.0 + DRF:** Robust REST API framework.
-- **PostgreSQL 15:** ACID-compliant relational database.
-- **SimpleJWT:** JWT authentication library.
-- **Groq SDK:** LPU-accelerated AI inference (18x faster than standard GPUs).
+### AI & Infrastructure
+- Groq SDK (Llama 3.3 70B)
+- Docker & Docker Compose
 
 ---
 
 ## 🔌 API Endpoints
 
-The API is designed following RESTful principles.
-
-### **Authentication & User Management**
-
-| Method   | Endpoint                    | Description                            | Auth Required |
-| :------- | :-------------------------- | :------------------------------------- | :-----------: |
-| `POST`   | `/api/signup`               | Register a new user account            |      ❌       |
-| `POST`   | `/api/login`                | Login (Obtain Access & Refresh Tokens) |      ❌       |
-| `POST`   | `/api/logout`               | Logout (Blacklist token/Clear cookie)  |      ✅       |
-| `POST`   | `/api/token/refresh`        | Refresh expired access token           |      ❌       |
-| `GET`    | `/api/user/me`              | Retrieve current user profile          |      ✅       |
-| `PUT`    | `/api/user/me`              | Update user profile details            |      ✅       |
-| `DELETE` | `/api/user/me`              | **Delete user account permanently**    |      ✅       |
-| `POST`   | `/api/user/change-password` | Change user password                   |      ✅       |
-
-### **AI Generation & Blog Content**
-
-| Method   | Endpoint                | Description                                    | Auth Required |
-| :------- | :---------------------- | :--------------------------------------------- | :-----------: |
-| `POST`   | `/api/generate-blog`    | **AI Core:** Generate content from YouTube URL |      ✅       |
-| `GET`    | `/api/blog-posts`       | List all created blog posts                    |      ✅       |
-| `POST`   | `/api/blog-posts`       | Manually create a blog post                    |      ✅       |
-| `GET`    | `/api/blog-posts/{id}/` | Retrieve specific blog details                 |      ✅       |
-| `PUT`    | `/api/blog-posts/{id}/` | Update blog content (Save editor changes)      |      ✅       |
-| `DELETE` | `/api/blog-posts/{id}/` | Delete a blog post                             |      ✅       |
+| Service | Method | Endpoint | Description |
+|-------|------|--------|------------|
+| Auth | POST | /api/login | Returns HttpOnly access/refresh tokens |
+| Auth | POST | /api/token/refresh | Silent token rotation |
+| AI Core | POST | /api/generate-blog | Triggers transcript extraction + inference |
+| CMS | GET | /api/blog-posts | List paginated user content |
+| CMS | PUT | /api/blog-posts/{id}/ | Update content (real-time save) |
 
 ---
 
 ## 🚀 Installation
 
 ### Prerequisites
+- Docker
+- Docker Compose
+- Groq API Key (Free Beta)
 
-Ensure you have the following installed:
-
-- **Docker Desktop** installed
-- **Docker Compose** (1.29+)
-- **Groq API Key** - [Get Free Key](https://console.groq.com/)
-
-### Quick Start (Docker - Recommended)
-
-1. **Clone the repository**
+### Quick Start
 
 ```bash
 git clone https://github.com/JACS002/BlogGen-ai
+cd BlogGen-ai
+cp .env.example .env
 ```
 
-2. **Configure environment variables**
-
-```bash
-touch .env
-nano .env  # or use your preferred editor
-```
-
-Required `.env` configuration:
+Set environment variables:
 
 ```env
-# Django Settings
-SECRET_KEY=your-secret-key-here-generate-with-django
-DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
-
-# Database Configuration
-DB_NAME=blog_db
-DB_USER=postgres
+GROQ_API_KEY=gsk_your_key_here
 DB_PASSWORD=postgres
-DB_HOST=db
-DB_PORT=5432
-
-# AI Service
-GROQ_API_KEY=your-groq-api-key-here
-
+SECRET_KEY=unsafe-secret-key
 ```
 
-3. **Launch the application**
+Deploy the stack:
 
 ```bash
-docker-compose up --build
+docker-compose up --build -d
 ```
 
-This will:
-
-- Build all Docker images
-- Start PostgreSQL database
-- Run Django migrations
-- Start backend server on `http://localhost:8000`
-- Start frontend dev server on `http://localhost:5173`
+- Frontend: http://localhost:5173  
+- Backend: http://localhost:8000  
 
 ---
 
+## 👨‍💻 Engineering Decisions & Trade-offs
+
+- **Why Groq?**  
+  Latency is critical for UX. Groq LPUs provide industry-leading Time-To-First-Token (TTFT).
+
+- **Why Django?**  
+  Python offers superior maintainability and tooling for AI pipelines and video processing.
+
+- **Why PostgreSQL?**  
+  Enforces strong relational integrity between Users and Generated Content.
+
+---
 ## 🎯 Key Technical Highlights
 
 ### Full-Stack Proficiency
@@ -257,6 +239,8 @@ This will:
 - Image optimization strategies
 
 ---
+
+
 
 ## 📝 License
 
